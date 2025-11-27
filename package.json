@@ -13,7 +13,6 @@
     "@tanstack/react-table": "^8.21.3",
     "axios": "^1.13.2",
     "date-fns": "^4.1.0",
-    "lightweight-charts": "^4.2.3",
     "lucide-react": "^0.555.0",
     "next": "16.0.5",
     "react": "19.2.0",

@@ -19,10 +19,9 @@ import {
 
 interface DataTableProps {
   data: MarketData[];
-  onSymbolClick?: (symbol: string) => void;
 }
 
-export default function DataTable({ data, onSymbolClick }: DataTableProps) {
+export default function DataTable({ data }: DataTableProps) {
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'quoteVolume', desc: true },
   ]);
@@ -33,12 +32,9 @@ export default function DataTable({ data, onSymbolClick }: DataTableProps) {
         accessorKey: 'symbol',
         header: 'Symbol',
         cell: ({ getValue }) => (
-          <button
-            onClick={() => onSymbolClick?.(getValue() as string)}
-            className="font-mono text-sm font-medium text-blue-400 hover:text-blue-300 transition-colors"
-          >
+          <span className="font-mono text-sm font-medium text-white">
             {(getValue() as string).replace('USDT', '/USDT')}
-          </button>
+          </span>
         ),
         size: 140,
       },
@@ -162,7 +158,7 @@ export default function DataTable({ data, onSymbolClick }: DataTableProps) {
         size: 90,
       },
     ],
-    [onSymbolClick]
+    []
   );
 
   const table = useReactTable({

@@ -5,14 +5,12 @@ import { useMarketStore } from '@/stores/useMarketStore';
 import { useMarketData } from '@/hooks/useMarketData';
 import DataTable from './DataTable';
 import FilterPanel from './FilterPanel';
-import TradingViewChart from '../charts/TradingViewChart';
 import { Download, RefreshCw, CheckCircle } from 'lucide-react';
 import type { MarketData } from '@/lib/types';
 
 export default function ScreenerView() {
   const { marketData, isLoading } = useMarketData();
   const { activeFilter } = useMarketStore();
-  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [exportStatus, setExportStatus] = useState<string | null>(null);
 
@@ -192,7 +190,6 @@ export default function ScreenerView() {
       <div className="flex-1 overflow-hidden">
         <DataTable
           data={filteredData}
-          onSymbolClick={(symbol) => setSelectedSymbol(symbol)}
         />
       </div>
 
@@ -208,15 +205,6 @@ export default function ScreenerView() {
             </p>
           </div>
         </div>
-      )}
-
-      {/* Chart Modal */}
-      {selectedSymbol && (
-        <TradingViewChart
-          symbol={selectedSymbol}
-          data={marketData.find((d) => d.symbol === selectedSymbol)!}
-          onClose={() => setSelectedSymbol(null)}
-        />
       )}
     </div>
   );
