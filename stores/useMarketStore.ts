@@ -53,6 +53,7 @@ interface MarketStore {
   addConfluenceAlert: (alert: ConfluenceAlert) => void;
   removeConfluenceAlert: (id: string) => void;
   clearConfluenceAlerts: () => void;
+  setConfluenceAlerts: (alerts: ConfluenceAlert[]) => void;
   toggleConfluenceAlerts: () => void;
 
   // Settings actions
@@ -277,6 +278,11 @@ export const useMarketStore = create<MarketStore>()(
       clearConfluenceAlerts: () =>
         set({
           confluenceAlerts: [],
+        }),
+
+      setConfluenceAlerts: (alerts) =>
+        set({
+          confluenceAlerts: alerts,
         }),
 
       toggleConfluenceAlerts: () =>

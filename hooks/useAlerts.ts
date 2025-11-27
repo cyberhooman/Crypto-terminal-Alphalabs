@@ -2,6 +2,7 @@ import { useEffect, useCallback } from 'react';
 import { useMarketStore } from '@/stores/useMarketStore';
 import { ConfluenceDetector, AlertSeverity } from '@/lib/alerts/confluenceDetector';
 import type { ConfluenceAlert } from '@/lib/alerts/confluenceDetector';
+import { backendAPI } from '@/lib/services/backendAPI';
 
 const confluenceDetector = new ConfluenceDetector();
 
@@ -13,6 +14,7 @@ export function useAlerts() {
     addConfluenceAlert,
     removeConfluenceAlert,
     clearConfluenceAlerts,
+    setConfluenceAlerts,
     settings,
   } = useMarketStore();
 
@@ -49,6 +51,23 @@ export function useAlerts() {
       }
     });
   }, [marketData, confluenceAlerts, confluenceAlertsEnabled, addConfluenceAlert, settings.soundEnabled]);
+
+  // Fetch historical alerts from backend on mount
+  useEffect(() => {
+    async function fetchHistoricalAlerts() {
+      try {
+        const alerts = await backendAPI.getAlerts();
+        if (alerts && alerts.length > 0) {
+          setConfluenceAlerts(alerts);
+          console.log(`📥 Loaded ${alerts.length} historical alerts from backend`);
+        }
+      } catch (error) {
+        console.error('Error fetching historical alerts:', error);
+      }
+    }
+
+    fetchHistoricalAlerts();
+  }, [setConfluenceAlerts]);
 
   // Request notification permission on mount
   useEffect(() => {
