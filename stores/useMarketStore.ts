@@ -316,7 +316,18 @@ export const useMarketStore = create<MarketStore>()(
         settings: state.settings,
         sidebarCollapsed: state.sidebarCollapsed,
         alertsEnabled: state.alertsEnabled,
+        confluenceAlerts: state.confluenceAlerts,
+        confluenceAlertsEnabled: state.confluenceAlertsEnabled,
       }),
+      // Custom hydration to filter old alerts (older than 48 hours)
+      onRehydrateStorage: () => (state) => {
+        if (state?.confluenceAlerts) {
+          const fortyEightHoursAgo = Date.now() - (48 * 60 * 60 * 1000);
+          state.confluenceAlerts = state.confluenceAlerts.filter(
+            alert => alert.timestamp > fortyEightHoursAgo
+          );
+        }
+      },
     }
   )
 );

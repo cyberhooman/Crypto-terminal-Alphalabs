@@ -57,16 +57,36 @@ export function useAlerts() {
     }
   }, []);
 
+  // Cleanup old alerts (older than 48 hours)
+  const cleanupOldAlerts = useCallback(() => {
+    const fortyEightHoursAgo = Date.now() - (48 * 60 * 60 * 1000);
+    const oldAlerts = confluenceAlerts.filter(alert => alert.timestamp <= fortyEightHoursAgo);
+
+    oldAlerts.forEach(alert => {
+      removeConfluenceAlert(alert.id);
+    });
+
+    if (oldAlerts.length > 0) {
+      console.log(`Cleaned up ${oldAlerts.length} old alerts (>48h)`);
+    }
+  }, [confluenceAlerts, removeConfluenceAlert]);
+
   // Run detection periodically
   useEffect(() => {
     // Initial detection
     detectPatterns();
 
     // Run every 30 seconds
-    const interval = setInterval(detectPatterns, 30000);
+    const detectionInterval = setInterval(detectPatterns, 30000);
 
-    return () => clearInterval(interval);
-  }, [detectPatterns]);
+    // Cleanup old alerts every hour
+    const cleanupInterval = setInterval(cleanupOldAlerts, 60 * 60 * 1000);
+
+    return () => {
+      clearInterval(detectionInterval);
+      clearInterval(cleanupInterval);
+    };
+  }, [detectPatterns, cleanupOldAlerts]);
 
   return {
     alerts: confluenceAlerts,
