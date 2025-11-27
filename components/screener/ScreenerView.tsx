@@ -5,7 +5,7 @@ import { useMarketStore } from '@/stores/useMarketStore';
 import { useMarketData } from '@/hooks/useMarketData';
 import DataTable from './DataTable';
 import FilterPanel from './FilterPanel';
-import ChartModal from '../charts/ChartModal';
+import TradingViewChart from '../charts/TradingViewChart';
 import { Download, RefreshCw, CheckCircle } from 'lucide-react';
 import type { MarketData } from '@/lib/types';
 
@@ -212,7 +212,7 @@ export default function ScreenerView() {
 
       {/* Chart Modal */}
       {selectedSymbol && (
-        <ChartModal
+        <TradingViewChart
           symbol={selectedSymbol}
           data={marketData.find((d) => d.symbol === selectedSymbol)!}
           onClose={() => setSelectedSymbol(null)}
