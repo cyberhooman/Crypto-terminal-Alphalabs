@@ -11,9 +11,11 @@ interface AlertPanelProps {
   onSymbolClick?: (symbol: string) => void;
 }
 
+type FilterType = 'ALL' | 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+
 export default function AlertPanel({ alerts, onDismiss, onSymbolClick }: AlertPanelProps) {
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [filter, setFilter] = useState<'ALL' | 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'>('ALL');
+  const [filter, setFilter] = useState<FilterType>('ALL');
 
   // Play sound for new CRITICAL alerts
   useEffect(() => {
@@ -88,7 +90,7 @@ export default function AlertPanel({ alerts, onDismiss, onSymbolClick }: AlertPa
 
         {/* Filters */}
         <div className="flex gap-2 mt-4">
-          {(['ALL', 'CRITICAL', 'HIGH', 'MEDIUM'] as const).map((f) => (
+          {(['ALL', 'CRITICAL', 'HIGH', 'MEDIUM'] as FilterType[]).map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
