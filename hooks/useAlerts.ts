@@ -62,8 +62,8 @@ export function useAlerts() {
     // Initial detection
     detectPatterns();
 
-    // Run every 60 seconds (reduced from 30s for performance)
-    const interval = setInterval(detectPatterns, 60000);
+    // Run every 30 seconds
+    const interval = setInterval(detectPatterns, 30000);
 
     return () => clearInterval(interval);
   }, [detectPatterns]);

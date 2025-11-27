@@ -184,7 +184,7 @@ export default function DataTable({ data }: DataTableProps) {
   }
 
   return (
-    <div className="w-full h-full overflow-auto bg-gray-950" style={{ contain: 'strict' }}>
+    <div className="w-full h-full overflow-auto bg-gray-950">
       <table className="w-full border-collapse">
         <thead className="sticky top-0 bg-gray-900 z-10 border-b border-gray-800">
           {table.getHeaderGroups().map((headerGroup) => (
