@@ -3,7 +3,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useMarketStore } from '@/stores/useMarketStore';
-import { mockDataService } from '@/lib/services/mockData';
+import { marketDataService } from '@/lib/services/marketData';
 
 export function useMarketData() {
   const { marketData, isLoading, setLoading, setMarketData } = useMarketStore();
@@ -16,17 +16,23 @@ export function useMarketData() {
     const initializeData = async () => {
       try {
         setLoading(true);
-        await mockDataService.initialize();
+        console.log('Connecting to Binance real-time data...');
+
+        await marketDataService.initialize();
 
         // Subscribe to updates
-        const unsubscribe = mockDataService.onUpdate((data) => {
-          setMarketData(data);
+        const unsubscribe = marketDataService.onUpdate((dataMap) => {
+          // Convert Map to Array for store
+          const dataArray = Array.from(dataMap.values());
+          setMarketData(dataArray);
         });
 
         // Initial data load
-        const initialData = mockDataService.getAllData();
+        const initialData = marketDataService.getAllData();
         setMarketData(initialData);
         setLoading(false);
+
+        console.log('Connected to Binance with real-time data!');
 
         return () => {
           unsubscribe();
@@ -41,7 +47,7 @@ export function useMarketData() {
 
     return () => {
       if (isInitialized.current) {
-        mockDataService.destroy();
+        marketDataService.destroy();
         isInitialized.current = false;
       }
     };
