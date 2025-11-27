@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Download
 } from 'lucide-react';
+import { useMarketStore } from '@/stores/useMarketStore';
 
 interface SidebarProps {
   currentView: string;
@@ -18,6 +19,7 @@ interface SidebarProps {
 
 export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const confluenceAlerts = useMarketStore((state) => state.confluenceAlerts);
 
   const menuItems = [
     { id: 'screener', icon: LayoutDashboard, label: 'Screener' },
@@ -63,7 +65,7 @@ export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
               <button
                 key={item.id}
                 onClick={() => onViewChange(item.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all relative ${
                   isActive
                     ? 'bg-blue-600 text-white'
                     : 'text-gray-400 hover:bg-gray-800 hover:text-white'
@@ -71,6 +73,15 @@ export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
               >
                 <Icon className="w-5 h-5 flex-shrink-0" />
                 {!collapsed && <span className="font-medium">{item.label}</span>}
+
+                {/* Alert badge */}
+                {item.id === 'alerts' && confluenceAlerts.length > 0 && (
+                  <span className={`${
+                    collapsed ? 'absolute top-1 right-1' : 'ml-auto'
+                  } flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-red-500 text-white text-xs font-bold rounded-full`}>
+                    {confluenceAlerts.length > 99 ? '99+' : confluenceAlerts.length}
+                  </span>
+                )}
               </button>
             );
           })}

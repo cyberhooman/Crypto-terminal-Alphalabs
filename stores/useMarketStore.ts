@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { MarketData, Filter, Alert, Settings, ColumnConfig } from '@/lib/types';
+import type { ConfluenceAlert } from '@/lib/alerts/confluenceDetector';
 
 interface MarketStore {
   // Market data
@@ -18,6 +19,10 @@ interface MarketStore {
   // Alerts
   alerts: Alert[];
   alertsEnabled: boolean;
+
+  // Confluence Alerts
+  confluenceAlerts: ConfluenceAlert[];
+  confluenceAlertsEnabled: boolean;
 
   // Settings
   settings: Settings;
@@ -43,6 +48,12 @@ interface MarketStore {
   deleteAlert: (id: string) => void;
   toggleAlerts: () => void;
   checkAlerts: () => void;
+
+  // Confluence Alert actions
+  addConfluenceAlert: (alert: ConfluenceAlert) => void;
+  removeConfluenceAlert: (id: string) => void;
+  clearConfluenceAlerts: () => void;
+  toggleConfluenceAlerts: () => void;
 
   // Settings actions
   updateSettings: (settings: Partial<Settings>) => void;
@@ -133,6 +144,9 @@ export const useMarketStore = create<MarketStore>()(
 
       alerts: [],
       alertsEnabled: true,
+
+      confluenceAlerts: [],
+      confluenceAlertsEnabled: true,
 
       settings: defaultSettings,
       sidebarCollapsed: false,
@@ -248,6 +262,27 @@ export const useMarketStore = create<MarketStore>()(
           }
         });
       },
+
+      // Confluence Alert actions
+      addConfluenceAlert: (alert) =>
+        set((state) => ({
+          confluenceAlerts: [alert, ...state.confluenceAlerts],
+        })),
+
+      removeConfluenceAlert: (id) =>
+        set((state) => ({
+          confluenceAlerts: state.confluenceAlerts.filter((a) => a.id !== id),
+        })),
+
+      clearConfluenceAlerts: () =>
+        set({
+          confluenceAlerts: [],
+        }),
+
+      toggleConfluenceAlerts: () =>
+        set((state) => ({
+          confluenceAlertsEnabled: !state.confluenceAlertsEnabled,
+        })),
 
       // Settings actions
       updateSettings: (settings) =>

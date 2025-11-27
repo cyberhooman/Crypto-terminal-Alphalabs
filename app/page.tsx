@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Sidebar from '@/components/ui/Sidebar';
 import ScreenerView from '@/components/screener/ScreenerView';
+import AlertsView from '@/components/alerts/AlertsView';
 
 export default function Home() {
   const [currentView, setCurrentView] = useState('screener');
@@ -46,7 +47,7 @@ export default function Home() {
         <div className="flex-1 overflow-hidden">
           {currentView === 'screener' && <ScreenerView />}
           {currentView === 'charts' && <ChartsPlaceholder />}
-          {currentView === 'alerts' && <AlertsPlaceholder />}
+          {currentView === 'alerts' && <AlertsView />}
           {currentView === 'settings' && <SettingsPlaceholder />}
         </div>
       </div>
@@ -62,20 +63,6 @@ function ChartsPlaceholder() {
         <h2 className="text-2xl font-bold mb-2">Charts View</h2>
         <p className="text-gray-400">
           Advanced charting coming soon
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function AlertsPlaceholder() {
-  return (
-    <div className="flex items-center justify-center h-full">
-      <div className="text-center">
-        <div className="text-6xl mb-4">🔔</div>
-        <h2 className="text-2xl font-bold mb-2">Alerts System</h2>
-        <p className="text-gray-400">
-          Set up custom alerts for funding rates, OI, and CVD
         </p>
       </div>
     </div>
