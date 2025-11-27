@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { createChart, ColorType, IChartApi, ISeriesApi } from 'lightweight-charts';
+import { createChart, ColorType, type IChartApi, type ISeriesApi, type CandlestickSeriesPartialOptions, type LineSeriesPartialOptions, type AreaSeriesPartialOptions } from 'lightweight-charts';
 import { X, TrendingUp, BarChart3, Clock, DollarSign, Maximize2 } from 'lucide-react';
 import type { MarketData } from '@/lib/types';
 import { formatPrice, formatPercentage, formatNumber } from '@/lib/utils/formatters';
@@ -135,7 +135,6 @@ export default function TradingViewChart({ symbol, data, onClose }: TradingViewC
         topColor: 'rgba(59, 130, 246, 0.4)',
         bottomColor: 'rgba(59, 130, 246, 0.0)',
         lineColor: 'rgba(59, 130, 246, 0)',
-        lineWidth: 0,
       }).setData(lineData);
     }
 
@@ -351,7 +350,7 @@ function generateCandleData(currentPrice: number, timeframe: string, count: numb
     const low = Math.min(open, close) * (1 - Math.random() * 0.005);
 
     data.push({
-      time: timestamp,
+      time: timestamp as any,
       open,
       high,
       low,
