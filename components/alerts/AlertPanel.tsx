@@ -13,7 +13,7 @@ interface AlertPanelProps {
 
 export default function AlertPanel({ alerts, onDismiss, onSymbolClick }: AlertPanelProps) {
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [filter, setFilter] = useState<'ALL' | AlertSeverity>('ALL');
+  const [filter, setFilter] = useState<'ALL' | 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'>('ALL');
 
   // Play sound for new CRITICAL alerts
   useEffect(() => {
