@@ -1,7 +1,7 @@
 // Mock data service with ALL Binance Futures USDT perpetual pairs
 import type { MarketData } from '../types';
 
-// Complete list of Binance Futures USDT perpetual pairs (200+ pairs)
+// Top 100 Binance Futures USDT perpetual pairs (reduced for performance)
 const symbols = [
   // Major Pairs
   'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT',
@@ -13,65 +13,27 @@ const symbols = [
   'SEIUSDT', 'TIAUSDT', 'ARBUSDT', 'OPUSDT', 'WLDUSDT',
   // DeFi
   'AAVEUSDT', 'MKRUSDT', 'SNXUSDT', 'COMPUSDT', 'CRVUSDT',
-  'SUSHIUSDT', '1INCHUSDT', 'YFIUSDT', 'BALUSDT', 'RUNEUSDT',
-  'LDOUSDT', 'RDNTUSDT', 'GMXUSDT', 'JOEUSDT', 'MAGICUSDT',
+  'SUSHIUSDT', '1INCHUSDT', 'YFIUSDT', 'RUNEUSDT',
+  'LDOUSDT', 'RDNTUSDT', 'GMXUSDT', 'JOEUSDT',
   // Layer 2s
-  'ARBUSDT', 'OPUSDT', 'MATICUSDT', 'IMXUSDT', 'STRKUSDT',
-  'METISUSDT', 'MANTAUSDT', 'BLURUSDT',
+  'IMXUSDT', 'STRKUSDT', 'METISUSDT', 'MANTAUSDT', 'BLURUSDT',
   // Gaming & Metaverse
   'AXSUSDT', 'SANDUSDT', 'MANAUSDT', 'APEUSDT', 'GALUSDT',
   'CHZUSDT', 'ENJUSDT', 'THETAUSDT', 'FLOWUSDT', 'GMTUSDT',
-  'GFTUSDT', 'PIXELUSDT', 'PORTALUSDT', 'XAIUSDT', 'ACEUSDT',
+  'PIXELUSDT', 'PORTALUSDT', 'XAIUSDT', 'ACEUSDT',
   // Meme Coins
-  'DOGEUSDT', 'SHIBUSDT', 'PEPEUSDT', 'FLOKIUSDT', 'BONKUSDT',
-  'WIFUSDT', 'MEMEUSDT', 'BOMEUSDT', 'PEOPLEUSDT', 'RATUSDT',
+  'SHIBUSDT', 'PEPEUSDT', 'FLOKIUSDT', 'BONKUSDT',
+  'WIFUSDT', 'MEMEUSDT', 'BOMEUSDT', 'PEOPLEUSDT',
   // AI & Data
   'FETUSDT', 'OCEANUSDT', 'AGIXUSDT', 'RNDRUSDT', 'ARKMUSDT',
-  'GRTUSDT', 'AIUSDT', 'NMRUSDT', 'PHBUSDT', 'WLDUSDT',
+  'GRTUSDT', 'AIUSDT', 'NMRUSDT',
   // Infrastructure
   'RENDERUSDT', 'ARUSDT', 'PYTHUSDT', 'JTOUSDT', 'DYMUSDT',
   'TNSRUSDT', 'ORBSUSDT', 'BANDUSDT', 'QNTUSDT',
-  // Exchange Tokens
-  'BNBUSDT', 'CAKEUSDT', 'BABYDOBEUSDT', 'SXPUSDT',
-  // Privacy
-  'XMRUSDT', 'ZECUSDT', 'DASHUSDT', 'SCRTUSDT',
-  // Storage
-  'FILUSDT', 'ARUSDT', 'STORJUSDT',
-  // Interoperability
-  'ATOMUSDT', 'DOTUSDT', 'QNTUSDT', 'CELRUSDT', 'AXLUSDT',
-  // Oracle
-  'LINKUSDT', 'BANDUSDT', 'TRBUSDТ',
-  // NFT
-  'BLZUSDT', 'ACHUSDT', 'BAKEUSDT',
-  // Traditional Assets
-  'PAXGUSDT', 'XAGUSDТ',
-  // More Altcoins
-  'XLMUSDT', 'XTZUSDT', 'EOSUSDT', 'NEOUSDT', 'IOTAUSDT',
-  'ONTUSDT', 'ZILUSDT', 'ZRXUSDT', 'BATUSDT', 'ENJUSDT',
-  'KAVAUSDT', 'KSMUSDT', 'LRCUSDT', 'OMGUSDT', 'QTUMUSDT',
-  'RVNUSDT', 'SCUSDT', 'ZENUSDT', 'ALPHAUSDT', 'ARUSDT',
-  'BADGERUSDT', 'BTSUSDT', 'CELOUSDT', 'CHRUSDT', 'CTXCUSDT',
-  'CVCUSDT', 'DENTUSDT', 'DGBUSDT', 'DUSKUSDT', 'EGLDUSDT',
-  'ENSUSDT', 'GALAUSDT', 'HBARUSDT', 'HNTUSDT', 'HOTUSDT',
-  'JASMYUSDT', 'KLAYUSDT', 'KNCUSDT', 'LINAUSDT', 'LITUSDT',
-  'LPTUSDT', 'MBOXUSDT', 'MINAUSDT', 'MTLUSDT', 'NKNUSDT',
-  'OGNUSDT', 'ONEUSDT', 'REEFUSDT', 'RENUSDT', 'ROSEUSDT',
-  'RSRUSDT', 'SFPUSDT', 'SKLUSDT', 'SRMUSDT', 'STGUSDT',
-  'STMXUSDT', 'SUPERUSDT', 'SXPUSDT', 'TCTUSDT', 'TLMUSDT',
-  'TOMOUSDT', 'TRBUSDT', 'TROYUSDT', 'TRUUSDT', 'TUSDT',
-  'UMAUSDT', 'UNFIUSDT', 'WAVESUSDT', 'WINGUSDT', 'WNXMUSDT',
-  'WOOUSDT', 'WRXUSDT', 'XEMUSDT', 'XVGUSDT', 'YFIIUSDT',
-  'YGGUSDT', 'ZRXUSDT', 'BTCDOMUSDT', 'DEFIUSDT',
   // Recent Listings (2024)
-  'PENDLEUSDT', 'ARKMUSDT', 'ENAUSDT', 'WUSDT', 'TNSRUSDT',
-  'SAGAUSDT', 'TAOUSDT', 'OMNIUSDT', 'LUNCUSDT', 'REZUSDT',
-  'BBUSDT', 'NOTUSDT', 'TURBOUSDT', 'IOUSDT', 'ZKUSDT',
-  'MEWUSDT', 'LISTAUSDT', 'ZROUSDT', 'RENDERUSDT', 'ATAUSDT',
-  'POLUSDT', 'SCRUSDT', 'MOVEUSDT', 'MEUSDT', 'VANAUSDT',
-  'BANANAUSDT', 'PUFFERUSDT', 'CATIUSDT', 'HMSTRUSDT', 'EIGENUSDT',
-  'NEIROUSDT', 'SUNUSDT', 'SAFEUSDT', '1MBABYDOGEUSDT', 'COWUSDT',
-  'CETUS', 'GOATUSDT', 'SCRTUSDT', 'KAIAUSDT', 'ACTUSDT',
-  'PNUTUSDT', 'CHILLGUYUSDT', 'SLERFUSDT', 'SCRUSDT',
+  'PENDLEUSDT', 'ENAUSDT', 'SAGAUSDT', 'TAOUSDT', 'OMNIUSDT',
+  'BBUSDT', 'NOTUSDT', 'ZKUSDT', 'MEWUSDT', 'LISTAUSDT',
+  'POLUSDT', 'MOVEUSDT', 'VANAUSDT', 'EIGENUSDT', 'PNUTUSDT',
 ];
 
 function randomBetween(min: number, max: number): number {
@@ -141,10 +103,10 @@ export class MockDataService {
       // Generate initial data
       this.data = generateMockData();
 
-      // Simulate real-time updates every 2 seconds
+      // Simulate real-time updates every 5 seconds
       this.updateInterval = setInterval(() => {
         this.updateData();
-      }, 2000);
+      }, 5000);
 
       resolve();
     });
