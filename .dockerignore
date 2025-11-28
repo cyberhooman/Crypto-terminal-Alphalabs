@@ -1,0 +1,18 @@
+# Ignore backend folder (frontend doesn't need it)
+backend/
+
+# Ignore node_modules (will be installed fresh)
+node_modules/
+.next/
+
+# Ignore environment files
+.env*.local
+
+# Ignore git
+.git/
+.gitignore
+
+# Ignore Railway config files (prevent conflicts)
+*.backend.toml
+Dockerfile.backend
+Dockerfile.frontend
