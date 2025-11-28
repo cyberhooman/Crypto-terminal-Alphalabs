@@ -29,9 +29,11 @@ export default function AlertPanel({ alerts, onDismiss, onSymbolClick }: AlertPa
     }
   }, [alerts, soundEnabled]);
 
-  const filteredAlerts = filter === 'ALL'
+  // Filter and limit alerts to prevent performance issues
+  const filteredAlerts = (filter === 'ALL'
     ? alerts
-    : alerts.filter(a => a.severity === filter);
+    : alerts.filter(a => a.severity === filter))
+    .slice(0, 50); // Show max 50 alerts at a time
 
   const criticalCount = alerts.filter(a => a.severity === AlertSeverity.CRITICAL).length;
   const highCount = alerts.filter(a => a.severity === AlertSeverity.HIGH).length;
@@ -108,6 +110,13 @@ export default function AlertPanel({ alerts, onDismiss, onSymbolClick }: AlertPa
 
       {/* Alerts List */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {filteredAlerts.length < alerts.length && (
+          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 mb-3">
+            <p className="text-yellow-400 text-sm">
+              ℹ️ Showing {filteredAlerts.length} of {alerts.length} alerts. Dismiss old alerts to see more.
+            </p>
+          </div>
+        )}
         {filteredAlerts.map((alert) => (
           <AlertCard
             key={alert.id}

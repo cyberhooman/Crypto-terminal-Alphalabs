@@ -26,17 +26,9 @@ export class MarketDataService {
       // Fetch initial data
       await this.fetchInitialData();
 
-      // Try to connect WebSocket (non-blocking, optional)
-      try {
-        await binanceWS.connect();
-        console.log('WebSocket connected successfully');
-
-        // Subscribe to real-time streams
-        this.subscribeToStreams();
-      } catch (wsError) {
-        console.warn('WebSocket connection failed (will use polling instead):', wsError);
-        // Continue without WebSocket - polling will handle updates
-      }
+      // WebSocket disabled - Binance blocks direct browser connections
+      // Using HTTP polling instead (works reliably on Railway)
+      console.log('ℹ️  WebSocket disabled. Using HTTP polling for real-time updates.');
 
       // Start periodic updates for data that doesn't have real-time streams
       this.startPeriodicUpdates();

@@ -163,21 +163,24 @@ export class BinanceWebSocket {
     }
   }
 
-  // Attempt to reconnect
+  // Attempt to reconnect with exponential backoff
   private attemptReconnect() {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error('Max reconnection attempts reached');
+      console.warn('⚠️  WebSocket max retries reached. Falling back to HTTP polling.');
       return;
     }
 
     this.reconnectAttempts++;
-    console.log(`Reconnecting in ${this.reconnectDelay}ms (attempt ${this.reconnectAttempts})`);
+
+    // Exponential backoff: 1s, 2s, 4s, 8s, 16s (max 30s)
+    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 30000);
+    console.log(`Reconnecting in ${delay / 1000}s (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
 
     setTimeout(() => {
       this.connect().catch(error => {
-        console.error('Reconnection failed:', error);
+        console.warn('Reconnection failed, will retry:', error.message || 'Unknown error');
       });
-    }, this.reconnectDelay);
+    }, delay);
   }
 
   // Start ping to keep connection alive
