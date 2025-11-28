@@ -1,10 +1,15 @@
 import { useEffect, useCallback } from 'react';
 import { useMarketStore } from '@/stores/useMarketStore';
-import { ConfluenceDetector, AlertSeverity } from '@/lib/alerts/confluenceDetector';
 import type { ConfluenceAlert } from '@/lib/alerts/confluenceDetector';
 import { backendAPI } from '@/lib/services/backendAPI';
 
-const confluenceDetector = new ConfluenceDetector();
+// Alert severity enum (duplicated from server-side to avoid importing Node.js code)
+export enum AlertSeverity {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL',
+}
 
 export function useAlerts() {
   const {
