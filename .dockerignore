@@ -1,0 +1,12 @@
+# Ignore everything except backend
+*
+!backend/
+
+# Ignore backend node_modules and build artifacts
+backend/node_modules/
+backend/dist/
+backend/.env
+
+# Ignore git
+.git/
+.gitignore
