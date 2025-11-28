@@ -22,15 +22,6 @@ CREATE INDEX IF NOT EXISTS idx_symbol ON confluence_alerts(symbol);
 CREATE INDEX IF NOT EXISTS idx_timestamp ON confluence_alerts(timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_severity ON confluence_alerts(severity);
 CREATE INDEX IF NOT EXISTS idx_setup_type ON confluence_alerts(setup_type);
-
--- Auto-cleanup old alerts (older than 48 hours)
-CREATE OR REPLACE FUNCTION cleanup_old_alerts()
-RETURNS void AS $$
-BEGIN
-  DELETE FROM confluence_alerts
-  WHERE timestamp < EXTRACT(EPOCH FROM NOW() - INTERVAL '48 hours') * 1000;
-END;
-$$ LANGUAGE plpgsql;
 `;
 
 export async function initializeDatabase(pool: Pool): Promise<void> {
