@@ -26,11 +26,17 @@ export class MarketDataService {
       // Fetch initial data
       await this.fetchInitialData();
 
-      // Connect WebSocket
-      await binanceWS.connect();
+      // Try to connect WebSocket (non-blocking, optional)
+      try {
+        await binanceWS.connect();
+        console.log('WebSocket connected successfully');
 
-      // Subscribe to real-time streams
-      this.subscribeToStreams();
+        // Subscribe to real-time streams
+        this.subscribeToStreams();
+      } catch (wsError) {
+        console.warn('WebSocket connection failed (will use polling instead):', wsError);
+        // Continue without WebSocket - polling will handle updates
+      }
 
       // Start periodic updates for data that doesn't have real-time streams
       this.startPeriodicUpdates();
