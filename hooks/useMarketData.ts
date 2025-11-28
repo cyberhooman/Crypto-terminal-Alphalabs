@@ -16,29 +16,46 @@ export function useMarketData() {
     const initializeData = async () => {
       try {
         setLoading(true);
-        console.log('Connecting to Binance real-time data...');
+        console.log('🔄 Connecting to market data service...');
 
         await marketDataService.initialize();
+        console.log('✅ Market data service initialized');
 
         // Subscribe to updates
         const unsubscribe = marketDataService.onUpdate((dataMap) => {
           // Convert Map to Array for store
           const dataArray = Array.from(dataMap.values());
+          console.log(`📊 Received ${dataArray.length} market data items`);
           setMarketData(dataArray);
         });
 
         // Initial data load
         const initialData = marketDataService.getAllData();
-        setMarketData(initialData);
-        setLoading(false);
+        console.log(`📈 Initial data loaded: ${initialData.length} items`);
 
-        console.log('Connected to Binance with real-time data!');
+        if (initialData.length > 0) {
+          setMarketData(initialData);
+          setLoading(false);
+          console.log('✅ Market data ready!');
+        } else {
+          console.warn('⚠️ No initial data received, waiting for updates...');
+          // Set loading to false anyway to show empty state
+          setTimeout(() => {
+            const retryData = marketDataService.getAllData();
+            if (retryData.length > 0) {
+              setMarketData(retryData);
+              console.log(`✅ Data received after delay: ${retryData.length} items`);
+            }
+            setLoading(false);
+          }, 2000);
+        }
 
         return () => {
           unsubscribe();
         };
       } catch (error) {
-        console.error('Error initializing market data:', error);
+        console.error('❌ Error initializing market data:', error);
+        console.error('Error details:', error instanceof Error ? error.message : String(error));
         setLoading(false);
       }
     };
