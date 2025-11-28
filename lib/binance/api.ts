@@ -181,7 +181,7 @@ export class BinanceAPI {
     try {
       const url = USE_BACKEND_PROXY
         ? `${this.backendURL}/aggTrades/${symbol}?limit=${limit}`
-        : `${this.baseendURL}/fapi/v1/aggTrades`;
+        : `${this.baseURL}/fapi/v1/aggTrades`;
 
       const response = USE_BACKEND_PROXY
         ? await axios.get(url)
