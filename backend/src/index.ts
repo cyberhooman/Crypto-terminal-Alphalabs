@@ -21,6 +21,20 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Root route - server status
+app.get('/', (_req, res) => {
+  res.json({
+    status: 'online',
+    service: 'Crypto Terminal Backend',
+    version: '1.0.0',
+    endpoints: {
+      health: '/api/health',
+      alerts: '/api/alerts',
+      docs: 'https://github.com/cyberhooman/Crypto-terminal-Alphalabs'
+    }
+  });
+});
+
 // Routes
 app.use('/api', router);
 
