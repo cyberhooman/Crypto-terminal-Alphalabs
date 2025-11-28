@@ -18,20 +18,19 @@ export function useAlerts() {
     settings,
   } = useMarketStore();
 
-  // Detect patterns and generate alerts
-  const detectPatterns = useCallback(() => {
-    if (marketData.length === 0 || !confluenceAlertsEnabled) return;
+  // Fetch fresh alerts from backend (replaces local detection)
+  const fetchBackendAlerts = useCallback(async () => {
+    if (!confluenceAlertsEnabled) return;
 
-    // Run confluence detection
-    const newAlerts = confluenceDetector.detectPatterns(marketData);
+    try {
+      const freshAlerts = await backendAPI.getAlerts();
 
-    // Add new alerts to store (avoid duplicates)
-    const existingAlertIds = new Set(confluenceAlerts.map(a => a.id));
-    newAlerts.forEach(alert => {
-      if (!existingAlertIds.has(alert.id)) {
-        addConfluenceAlert(alert);
+      // Check for new alerts
+      const existingAlertIds = new Set(confluenceAlerts.map(a => a.id));
+      const newAlerts = freshAlerts.filter(alert => !existingAlertIds.has(alert.id));
 
-        // Show browser notification for CRITICAL alerts
+      // Show notifications for new CRITICAL alerts
+      newAlerts.forEach(alert => {
         if (alert.severity === AlertSeverity.CRITICAL && 'Notification' in window) {
           if (Notification.permission === 'granted') {
             new Notification(`🚨 ${alert.title}`, {
@@ -48,9 +47,14 @@ export function useAlerts() {
           // const audio = new Audio('/alert-critical.mp3');
           // audio.play().catch(console.error);
         }
-      }
-    });
-  }, [marketData, confluenceAlerts, confluenceAlertsEnabled, addConfluenceAlert, settings.soundEnabled]);
+      });
+
+      // Update store with all alerts from backend
+      setConfluenceAlerts(freshAlerts);
+    } catch (error) {
+      console.error('Error fetching backend alerts:', error);
+    }
+  }, [confluenceAlerts, confluenceAlertsEnabled, setConfluenceAlerts, settings.soundEnabled]);
 
   // Fetch historical alerts from backend on mount
   useEffect(() => {
@@ -90,22 +94,22 @@ export function useAlerts() {
     }
   }, [confluenceAlerts, removeConfluenceAlert]);
 
-  // Run detection periodically
+  // Fetch backend alerts periodically
   useEffect(() => {
-    // Initial detection
-    detectPatterns();
+    // Initial fetch
+    fetchBackendAlerts();
 
-    // Run every 30 seconds
-    const detectionInterval = setInterval(detectPatterns, 30000);
+    // Fetch every 30 seconds (backend detects 24/7, we just poll for updates)
+    const fetchInterval = setInterval(fetchBackendAlerts, 30000);
 
     // Cleanup old alerts every hour
     const cleanupInterval = setInterval(cleanupOldAlerts, 60 * 60 * 1000);
 
     return () => {
-      clearInterval(detectionInterval);
+      clearInterval(fetchInterval);
       clearInterval(cleanupInterval);
     };
-  }, [detectPatterns, cleanupOldAlerts]);
+  }, [fetchBackendAlerts, cleanupOldAlerts]);
 
   return {
     alerts: confluenceAlerts,
