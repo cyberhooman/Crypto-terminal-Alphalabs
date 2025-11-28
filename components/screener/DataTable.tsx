@@ -53,6 +53,7 @@ export default function DataTable({ data }: DataTableProps) {
         header: '24h %',
         cell: ({ getValue }) => {
           const value = getValue() as number;
+          if (value == null) return <span className="font-mono text-sm text-gray-500">—</span>;
           const color = value >= 0 ? 'text-green-400' : 'text-red-400';
           return (
             <span className={`font-mono text-sm font-medium ${color}`}>
@@ -66,11 +67,15 @@ export default function DataTable({ data }: DataTableProps) {
       {
         accessorKey: 'quoteVolume',
         header: '24h Volume',
-        cell: ({ getValue }) => (
-          <span className="font-mono text-sm text-gray-300">
-            ${formatNumber(getValue() as number, 0)}
-          </span>
-        ),
+        cell: ({ getValue }) => {
+          const value = getValue() as number;
+          if (value == null) return <span className="font-mono text-sm text-gray-500">—</span>;
+          return (
+            <span className="font-mono text-sm text-gray-300">
+              ${formatNumber(value, 0)}
+            </span>
+          );
+        },
         size: 120,
       },
       {
@@ -78,6 +83,7 @@ export default function DataTable({ data }: DataTableProps) {
         header: 'Funding Rate',
         cell: ({ getValue }) => {
           const value = getValue() as number;
+          if (value == null) return <span className="font-mono text-sm text-gray-500">—</span>;
           const absValue = Math.abs(value);
           let color = 'text-gray-300';
 
@@ -97,11 +103,15 @@ export default function DataTable({ data }: DataTableProps) {
       {
         accessorKey: 'openInterestValue',
         header: '8hr OI',
-        cell: ({ getValue }) => (
-          <span className="font-mono text-sm text-gray-300">
-            ${formatNumber(getValue() as number, 1)}
-          </span>
-        ),
+        cell: ({ getValue }) => {
+          const value = getValue() as number;
+          if (value == null || value === 0) return <span className="font-mono text-sm text-gray-500">—</span>;
+          return (
+            <span className="font-mono text-sm text-gray-300">
+              ${formatNumber(value, 1)}
+            </span>
+          );
+        },
         size: 120,
       },
       {
@@ -109,6 +119,7 @@ export default function DataTable({ data }: DataTableProps) {
         header: '1hr VDelta',
         cell: ({ getValue }) => {
           const value = getValue() as number;
+          if (value == null) return <span className="font-mono text-sm text-gray-500">—</span>;
           const color = value >= 0 ? 'text-green-400' : 'text-red-400';
           return (
             <span className={`font-mono text-sm ${color}`}>
