@@ -193,7 +193,8 @@ export default function ScreenerView() {
         />
       </div>
 
-      {filteredData.length === 0 && (
+      {/* Only show "No Results Found" after data has loaded and filters/search returned no matches */}
+      {!isLoading && marketData.length > 0 && filteredData.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/50">
           <div className="bg-gray-900 p-8 rounded-lg border border-gray-800 text-center">
             <div className="text-4xl mb-4">🔍</div>
