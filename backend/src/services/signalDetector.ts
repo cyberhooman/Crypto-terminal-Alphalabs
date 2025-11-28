@@ -4,7 +4,15 @@ import pool from '../db/client';
 import { ConfluenceDetector } from '../lib/alerts/confluenceDetector';
 import type { MarketData } from '../lib/types';
 
-const BINANCE_API = 'https://fapi.binance.com';
+// Multiple API endpoints with fallback support
+const API_ENDPOINTS = [
+  'https://fapi.binance.com', // Primary
+  'https://fapi1.binance.com', // Fallback 1
+  'https://fapi2.binance.com', // Fallback 2
+  'https://fapi3.binance.com', // Fallback 3
+];
+
+let currentEndpointIndex = 0;
 
 export class SignalDetectionService {
   private detector: ConfluenceDetector;
@@ -79,16 +87,46 @@ export class SignalDetectionService {
     }
   }
 
-  // Fetch market data from Binance
+  // Fetch with automatic fallback to alternative endpoints
+  private async fetchWithFallback(path: string): Promise<any> {
+    const maxAttempts = API_ENDPOINTS.length;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const endpoint = API_ENDPOINTS[currentEndpointIndex];
+
+      try {
+        const response = await axios.get(`${endpoint}${path}`, {
+          timeout: 10000,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          },
+        });
+        return response.data;
+      } catch (error: any) {
+        const status = error?.response?.status;
+        const isGeoBlocked = status === 451 || status === 403;
+
+        if (isGeoBlocked) {
+          console.log(`⚠️  Endpoint ${endpoint} geo-blocked (${status}), trying next...`);
+          currentEndpointIndex = (currentEndpointIndex + 1) % API_ENDPOINTS.length;
+        } else {
+          console.error(`Error fetching from ${endpoint}:`, error.message);
+          throw error;
+        }
+      }
+    }
+
+    throw new Error('All API endpoints failed or are geo-blocked');
+  }
+
+  // Fetch market data from Binance with fallback support
   private async fetchMarketData(): Promise<MarketData[]> {
     try {
-      // Fetch 24hr ticker
-      const tickerRes = await axios.get(`${BINANCE_API}/fapi/v1/ticker/24hr`);
-      const tickers = tickerRes.data;
+      // Fetch 24hr ticker with fallback
+      const tickers = await this.fetchWithFallback('/fapi/v1/ticker/24hr');
 
-      // Fetch funding rates
-      const fundingRes = await axios.get(`${BINANCE_API}/fapi/v1/premiumIndex`);
-      const fundingRates = fundingRes.data;
+      // Fetch funding rates with fallback
+      const fundingRates = await this.fetchWithFallback('/fapi/v1/premiumIndex');
       const fundingMap = new Map<string, any>(fundingRates.map((f: any) => [f.symbol, f]));
 
       // Combine data (filter USDT pairs only)
@@ -118,9 +156,10 @@ export class SignalDetectionService {
           };
         });
 
+      console.log(`📊 Fetched ${marketData.length} market pairs`);
       return marketData;
     } catch (error) {
-      console.error('Error fetching market data:', error);
+      console.error('❌ All API endpoints failed:', error);
       return [];
     }
   }
