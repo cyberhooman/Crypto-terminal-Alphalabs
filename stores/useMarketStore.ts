@@ -280,10 +280,16 @@ export const useMarketStore = create<MarketStore>()(
           confluenceAlerts: [],
         }),
 
-      setConfluenceAlerts: (alerts) =>
+      setConfluenceAlerts: (alerts) => {
+        // Keep only the most recent 100 alerts to prevent memory leaks
+        const limitedAlerts = alerts
+          .sort((a, b) => b.timestamp - a.timestamp)
+          .slice(0, 100);
+
         set({
-          confluenceAlerts: alerts,
-        }),
+          confluenceAlerts: limitedAlerts,
+        });
+      },
 
       toggleConfluenceAlerts: () =>
         set((state) => ({

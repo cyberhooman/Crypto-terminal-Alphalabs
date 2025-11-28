@@ -52,7 +52,7 @@ export class ConfluenceDetector {
   private timeSeries: Map<string, TimeSeriesData[]> = new Map();
   private fundingRateStats: Map<string, { mean: number; stdDev: number }> = new Map();
   private lastAlertTime: Map<string, number> = new Map();
-  private readonly ALERT_COOLDOWN = 2 * 60 * 60 * 1000; // 2 hours between alerts per symbol
+  private readonly ALERT_COOLDOWN = 8 * 60 * 60 * 1000; // 8 hours between alerts per symbol (max 3 per day)
 
   // Time windows (in milliseconds)
   private readonly ONE_HOUR = 60 * 60 * 1000;
@@ -67,9 +67,9 @@ export class ConfluenceDetector {
 
     // Filter for high-liquidity coins only (top volume)
     const highLiquidityCoins = currentData
-      .filter(d => d.quoteVolume > 10_000_000) // Min $10M 24h volume
+      .filter(d => d.quoteVolume > 50_000_000) // Min $50M 24h volume (stricter)
       .sort((a, b) => b.quoteVolume - a.quoteVolume)
-      .slice(0, 100); // Top 100 by volume
+      .slice(0, 50); // Top 50 by volume only
 
     for (const data of highLiquidityCoins) {
       // Update time series
@@ -181,13 +181,13 @@ export class ConfluenceDetector {
       confluenceScore += 35;
     }
 
-    // STRICT CRITERIA: Need 3+ signals AND score >= 80 for CRITICAL or >= 65 for HIGH
-    if (signals.length >= 3 && confluenceScore >= 65) {
+    // VERY STRICT CRITERIA: Need 4+ signals AND score >= 90 for CRITICAL or >= 75 for HIGH
+    if (signals.length >= 4 && confluenceScore >= 75) {
       return {
         id: `${data.symbol}-SHORT-SQUEEZE-${now}`,
         symbol: data.symbol,
         setupType: SetupType.SHORT_SQUEEZE,
-        severity: confluenceScore >= 80 ? AlertSeverity.CRITICAL : AlertSeverity.HIGH,
+        severity: confluenceScore >= 90 ? AlertSeverity.CRITICAL : AlertSeverity.HIGH,
         title: `🚀 SHORT SQUEEZE SETUP - ${data.symbol}`,
         description: 'Extreme short crowding + OI surge + hidden accumulation. High probability squeeze.',
         signals,
@@ -260,13 +260,13 @@ export class ConfluenceDetector {
       confluenceScore += 35;
     }
 
-    // STRICT CRITERIA: Need 3+ signals AND score >= 65
-    if (signals.length >= 3 && confluenceScore >= 65) {
+    // VERY STRICT CRITERIA: Need 4+ signals AND score >= 75
+    if (signals.length >= 4 && confluenceScore >= 75) {
       return {
         id: `${data.symbol}-LONG-FLUSH-${now}`,
         symbol: data.symbol,
         setupType: SetupType.LONG_FLUSH,
-        severity: confluenceScore >= 80 ? AlertSeverity.CRITICAL : AlertSeverity.HIGH,
+        severity: confluenceScore >= 90 ? AlertSeverity.CRITICAL : AlertSeverity.HIGH,
         title: `⚠️ LONG FLUSH SETUP - ${data.symbol}`,
         description: 'Extreme long crowding + OI maxed + distribution. High probability liquidation cascade.',
         signals,
@@ -328,7 +328,7 @@ export class ConfluenceDetector {
         confluenceScore += 45;
       }
 
-      if (signals.length >= 2 && confluenceScore >= 75) {
+      if (signals.length >= 3 && confluenceScore >= 90) {
         return {
           id: `${data.symbol}-CAPITULATION-BOTTOM-${now}`,
           symbol: data.symbol,
@@ -362,7 +362,7 @@ export class ConfluenceDetector {
         confluenceScore += 45;
       }
 
-      if (signals.length >= 2 && confluenceScore >= 75) {
+      if (signals.length >= 3 && confluenceScore >= 90) {
         return {
           id: `${data.symbol}-CAPITULATION-TOP-${now}`,
           symbol: data.symbol,

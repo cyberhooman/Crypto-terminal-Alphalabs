@@ -13,16 +13,19 @@ router.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Get all alerts (past 48 hours)
+// Get all alerts (past 6 hours only, limit 50 for performance)
 router.get('/alerts', async (req: Request, res: Response) => {
   try {
-    const fortyEightHoursAgo = Date.now() - (48 * 60 * 60 * 1000);
+    const sixHoursAgo = Date.now() - (6 * 60 * 60 * 1000);
+    const limit = parseInt(req.query.limit as string) || 50; // Default 50, max enforced below
 
     const result = await pool.query(
       `SELECT * FROM confluence_alerts
        WHERE timestamp > $1
-       ORDER BY timestamp DESC`,
-      [fortyEightHoursAgo]
+       AND severity IN ('CRITICAL', 'HIGH')
+       ORDER BY timestamp DESC, confluence_score DESC
+       LIMIT $2`,
+      [sixHoursAgo, Math.min(limit, 100)]
     );
 
     const alerts = result.rows.map(row => ({
