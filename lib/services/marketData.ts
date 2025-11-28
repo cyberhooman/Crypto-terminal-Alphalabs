@@ -46,22 +46,24 @@ export class MarketDataService {
   // Fetch initial data
   private async fetchInitialData(): Promise<void> {
     try {
-      // Get all symbols
-      const exchangeInfo = await binanceAPI.getExchangeInfo();
+      console.log('Fetching initial data from backend proxy...');
+
+      // Fetch data in parallel for faster loading
+      const [exchangeInfo, tickers, fundingRates] = await Promise.all([
+        binanceAPI.getExchangeInfo(),
+        binanceAPI.get24hrTicker(),
+        binanceAPI.getFundingRates(),
+      ]);
+
       this.symbols = exchangeInfo
         .filter(s => s.quoteAsset === 'USDT') // Filter for USDT pairs
         .map(s => s.symbol);
 
       console.log(`Loaded ${this.symbols.length} USDT perpetual symbols`);
 
-      // Fetch initial ticker data
-      const tickers = await binanceAPI.get24hrTicker();
-
-      // Fetch funding rates
-      const fundingRates = await binanceAPI.getFundingRates();
       const fundingMap = new Map(fundingRates.map(f => [f.symbol, f]));
 
-      // Initialize market data
+      // Initialize market data (without OI and CVD for fast initial load)
       for (const ticker of tickers) {
         if (!this.symbols.includes(ticker.symbol)) continue;
 
@@ -90,17 +92,36 @@ export class MarketDataService {
         this.marketData.set(ticker.symbol, marketData);
       }
 
-      // Fetch open interest for top symbols (to avoid rate limits)
-      const topSymbols = this.symbols.slice(0, 50);
-      await this.updateOpenInterest(topSymbols);
+      console.log('Initial data fetch completed (OI and CVD will load in background)');
 
-      // Initialize CVD for top symbols
-      await this.initializeCVD(topSymbols);
-
-      console.log('Initial data fetch completed');
+      // Load OI and CVD in background (non-blocking)
+      this.loadSecondaryData();
     } catch (error) {
       console.error('Error fetching initial data:', error);
       throw error;
+    }
+  }
+
+  // Load secondary data (OI, CVD) in background
+  private async loadSecondaryData(): Promise<void> {
+    try {
+      console.log('Loading secondary data in background...');
+
+      // Load OI for top 50 symbols (non-blocking)
+      const topSymbols = this.symbols.slice(0, 50);
+
+      // Don't await - let it load in background
+      this.updateOpenInterest(topSymbols).catch(err => {
+        console.warn('Failed to load OI data:', err.message);
+      });
+
+      // Initialize CVD for top 20 symbols (non-blocking)
+      const cvdSymbols = this.symbols.slice(0, 20);
+      this.initializeCVD(cvdSymbols).catch(err => {
+        console.warn('Failed to initialize CVD:', err.message);
+      });
+    } catch (error) {
+      console.warn('Error loading secondary data:', error);
     }
   }
 
