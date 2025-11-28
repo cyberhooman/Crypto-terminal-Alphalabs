@@ -1,8 +1,8 @@
 // 24/7 Signal Detection Service
 import axios from 'axios';
 import pool from '../db/client';
-import { ConfluenceDetector } from '../../../lib/alerts/confluenceDetector';
-import type { MarketData } from '../../../lib/types';
+import { ConfluenceDetector } from '../lib/alerts/confluenceDetector';
+import type { MarketData } from '../lib/types';
 
 const BINANCE_API = 'https://fapi.binance.com';
 
