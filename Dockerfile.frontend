@@ -1,0 +1,26 @@
+# Frontend Dockerfile for Next.js
+FROM node:22-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy all frontend files
+COPY . .
+
+# Build Next.js app
+RUN npm run build
+
+# Expose port
+EXPOSE 3000
+
+# Set environment to production
+ENV NODE_ENV=production
+
+# Start Next.js production server
+CMD ["npm", "start"]
