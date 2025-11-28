@@ -322,17 +322,44 @@ export const useMarketStore = create<MarketStore>()(
         settings: state.settings,
         sidebarCollapsed: state.sidebarCollapsed,
         alertsEnabled: state.alertsEnabled,
-        confluenceAlerts: state.confluenceAlerts,
         confluenceAlertsEnabled: state.confluenceAlertsEnabled,
+        // Don't persist confluenceAlerts - they come from backend and fill up localStorage
       }),
-      // Custom hydration to filter old alerts (older than 48 hours)
-      onRehydrateStorage: () => (state) => {
-        if (state?.confluenceAlerts) {
-          const fortyEightHoursAgo = Date.now() - (48 * 60 * 60 * 1000);
-          state.confluenceAlerts = state.confluenceAlerts.filter(
-            alert => alert.timestamp > fortyEightHoursAgo
-          );
-        }
+      storage: {
+        getItem: (name) => {
+          try {
+            const str = localStorage.getItem(name);
+            return str ? JSON.parse(str) : null;
+          } catch (error) {
+            console.warn('Error reading from localStorage:', error);
+            return null;
+          }
+        },
+        setItem: (name, value) => {
+          try {
+            localStorage.setItem(name, JSON.stringify(value));
+          } catch (error) {
+            // Handle QuotaExceededError
+            if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+              console.warn('localStorage quota exceeded, clearing old data');
+              try {
+                localStorage.clear();
+                localStorage.setItem(name, JSON.stringify(value));
+              } catch (clearError) {
+                console.error('Failed to clear localStorage:', clearError);
+              }
+            } else {
+              console.error('Error writing to localStorage:', error);
+            }
+          }
+        },
+        removeItem: (name) => {
+          try {
+            localStorage.removeItem(name);
+          } catch (error) {
+            console.error('Error removing from localStorage:', error);
+          }
+        },
       },
     }
   )
