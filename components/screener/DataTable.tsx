@@ -96,17 +96,17 @@ export default function DataTable({ data }: DataTableProps) {
       },
       {
         accessorKey: 'openInterestValue',
-        header: 'Open Interest',
+        header: '8hr OI Change',
         cell: ({ getValue }) => (
           <span className="font-mono text-sm text-gray-300">
             ${formatNumber(getValue() as number, 1)}
           </span>
         ),
-        size: 130,
+        size: 140,
       },
       {
         accessorKey: 'cvd',
-        header: 'CVD',
+        header: '1hr VDelta',
         cell: ({ getValue }) => {
           const value = getValue() as number;
           const color = value >= 0 ? 'text-green-400' : 'text-red-400';
