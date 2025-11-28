@@ -98,7 +98,7 @@ export class ConfluenceDetector {
 
     // Check: Funding deeply negative
     if (data.fundingRate < -0.0003) {
-      signals.push(`⚠️ Deeply negative funding: ${(fundingAPR).toFixed(1)}% APR`);
+      signals.push(`⚠️ Deeply negative funding: ${(data.fundingRate * 100).toFixed(4)}%`);
       confluenceScore += 30;
 
       if (data.fundingRate < -0.0005) {
@@ -167,7 +167,7 @@ export class ConfluenceDetector {
 
     // Check: Funding extremely positive
     if (data.fundingRate > 0.0003) {
-      signals.push(`⚠️ High positive funding: ${fundingAPR.toFixed(1)}% APR`);
+      signals.push(`⚠️ High positive funding: ${(data.fundingRate * 100).toFixed(4)}%`);
       confluenceScore += 30;
 
       if (data.fundingRate > 0.0005) {

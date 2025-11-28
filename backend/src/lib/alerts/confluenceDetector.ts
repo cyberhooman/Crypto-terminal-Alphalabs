@@ -139,7 +139,7 @@ export class ConfluenceDetector {
 
     // Signal 1: Funding rate extremely negative (dynamic threshold)
     if (fundingZScore < -2.0) { // More than 2 std devs below mean
-      signals.push(`🔥 Extreme negative funding: ${fundingAPR.toFixed(1)}% APR (${fundingZScore.toFixed(1)}σ)`);
+      signals.push(`🔥 Extreme negative funding: ${(data.fundingRate * 100).toFixed(4)}% (${fundingZScore.toFixed(1)}σ)`);
       confluenceScore += 35;
 
       if (fundingZScore < -3.0) {
@@ -223,7 +223,7 @@ export class ConfluenceDetector {
 
     // Signal 1: Funding rate extremely positive (dynamic threshold)
     if (fundingZScore > 2.0) { // More than 2 std devs above mean
-      signals.push(`🔥 Extreme positive funding: ${fundingAPR.toFixed(1)}% APR (${fundingZScore.toFixed(1)}σ)`);
+      signals.push(`🔥 Extreme positive funding: ${(data.fundingRate * 100).toFixed(4)}% (${fundingZScore.toFixed(1)}σ)`);
       confluenceScore += 35;
 
       if (fundingZScore > 3.0) {

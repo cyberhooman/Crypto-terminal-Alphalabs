@@ -204,12 +204,12 @@ function AlertCard({
       {/* Data Summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
         <div className="bg-gray-900/50 p-2 rounded">
-          <div className="text-gray-500">Funding APR</div>
+          <div className="text-gray-500">Funding Rate</div>
           <div className={`font-mono font-semibold ${
-            (alert.data.fundingAPR || 0) > 0 ? 'text-green-400' : 'text-red-400'
+            (alert.data.fundingRate || 0) > 0 ? 'text-green-400' : 'text-red-400'
           }`}>
-            {(alert.data.fundingAPR || 0) > 0 ? '+' : ''}
-            {(alert.data.fundingAPR || 0).toFixed(1)}%
+            {(alert.data.fundingRate || 0) > 0 ? '+' : ''}
+            {((alert.data.fundingRate || 0) * 100).toFixed(4)}%
           </div>
         </div>
         <div className="bg-gray-900/50 p-2 rounded">
