@@ -20,6 +20,7 @@ export default function AlertsView() {
       <AlertPanel
         alerts={alerts}
         onDismiss={removeAlert}
+        onClearAll={clearAlerts}
         onSymbolClick={handleSymbolClick}
       />
     </div>

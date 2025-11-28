@@ -1,19 +1,20 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Bell, TrendingUp, TrendingDown, AlertTriangle, X, Volume2 } from 'lucide-react';
+import { Bell, TrendingUp, TrendingDown, AlertTriangle, X, Volume2, Trash2 } from 'lucide-react';
 import type { ConfluenceAlert } from '@/lib/alerts/confluenceDetector';
 import { AlertSeverity, SetupType } from '@/lib/alerts/confluenceDetector';
 
 interface AlertPanelProps {
   alerts: ConfluenceAlert[];
   onDismiss: (id: string) => void;
+  onClearAll?: () => void;
   onSymbolClick?: (symbol: string) => void;
 }
 
 type FilterType = 'ALL' | 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
 
-export default function AlertPanel({ alerts, onDismiss, onSymbolClick }: AlertPanelProps) {
+export default function AlertPanel({ alerts, onDismiss, onClearAll, onSymbolClick }: AlertPanelProps) {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [filter, setFilter] = useState<FilterType>('ALL');
 
@@ -79,11 +80,22 @@ export default function AlertPanel({ alerts, onDismiss, onSymbolClick }: AlertPa
           </div>
 
           <div className="flex items-center gap-2">
+            {alerts.length > 0 && onClearAll && (
+              <button
+                onClick={onClearAll}
+                className="px-3 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
+                title="Clear all alerts"
+              >
+                <Trash2 className="w-4 h-4" />
+                Clear All
+              </button>
+            )}
             <button
               onClick={() => setSoundEnabled(!soundEnabled)}
               className={`p-2 rounded-lg transition-colors ${
                 soundEnabled ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'
               }`}
+              title="Toggle sound"
             >
               <Volume2 className="w-4 h-4" />
             </button>
