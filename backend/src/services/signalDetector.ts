@@ -1,7 +1,7 @@
 // 24/7 Signal Detection Service
 import axios from 'axios';
 import pool from '../db/client';
-import { ConfluenceDetector } from '../lib/alerts/confluenceDetector';
+import { ConfluenceDetectorV2 } from '../lib/alerts/confluenceDetectorV2';
 import type { MarketData } from '../lib/types';
 
 // Multiple API endpoints with fallback support
@@ -15,12 +15,12 @@ const API_ENDPOINTS = [
 let currentEndpointIndex = 0;
 
 export class SignalDetectionService {
-  private detector: ConfluenceDetector;
+  private detector: ConfluenceDetectorV2;
   private isRunning: boolean = false;
   private detectionInterval: NodeJS.Timeout | null = null;
 
   constructor() {
-    this.detector = new ConfluenceDetector();
+    this.detector = new ConfluenceDetectorV2();
   }
 
   // Start 24/7 detection
