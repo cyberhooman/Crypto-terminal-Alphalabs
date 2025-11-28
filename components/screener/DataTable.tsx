@@ -75,11 +75,10 @@ export default function DataTable({ data }: DataTableProps) {
       },
       {
         accessorKey: 'fundingRate',
-        header: 'Funding',
+        header: 'Funding Rate',
         cell: ({ getValue }) => {
           const value = getValue() as number;
           const absValue = Math.abs(value);
-          const apr = value * 3 * 365 * 100; // 8hr funding * 3 times per day * 365 days * 100 for percentage
           let color = 'text-gray-300';
 
           if (absValue > 0.0008) color = 'text-red-400 font-bold';
@@ -88,57 +87,37 @@ export default function DataTable({ data }: DataTableProps) {
           else if (value < 0) color = 'text-blue-400';
 
           return (
-            <div className="flex flex-col">
-              <span className={`font-mono text-sm ${color}`}>
-                {formatPercentage(value, 4)}
-              </span>
-              <span className="font-mono text-xs text-gray-500">
-                {apr >= 0 ? '+' : ''}{apr.toFixed(1)}% APR
-              </span>
-            </div>
+            <span className={`font-mono text-sm ${color}`}>
+              {formatPercentage(value, 4)}
+            </span>
           );
         },
-        size: 120,
-      },
-      {
-        accessorKey: 'high',
-        header: '24h High',
-        cell: ({ getValue }) => (
-          <span className="font-mono text-sm text-gray-300">
-            ${formatPrice(getValue() as number)}
-          </span>
-        ),
         size: 110,
       },
       {
-        accessorKey: 'low',
-        header: '24h Low',
+        accessorKey: 'openInterestValue',
+        header: '8hr OI',
         cell: ({ getValue }) => (
           <span className="font-mono text-sm text-gray-300">
-            ${formatPrice(getValue() as number)}
-          </span>
-        ),
-        size: 110,
-      },
-      {
-        accessorKey: 'volume',
-        header: 'Base Volume',
-        cell: ({ getValue }) => (
-          <span className="font-mono text-sm text-gray-400">
-            {formatNumber(getValue() as number, 0)}
+            ${formatNumber(getValue() as number, 1)}
           </span>
         ),
         size: 120,
       },
       {
-        accessorKey: 'trades',
-        header: 'Trades',
-        cell: ({ getValue }) => (
-          <span className="font-mono text-sm text-gray-400">
-            {formatNumber(getValue() as number, 0)}
-          </span>
-        ),
-        size: 100,
+        accessorKey: 'cvd',
+        header: '1hr VDelta',
+        cell: ({ getValue }) => {
+          const value = getValue() as number;
+          const color = value >= 0 ? 'text-green-400' : 'text-red-400';
+          return (
+            <span className={`font-mono text-sm ${color}`}>
+              {value >= 0 ? '+' : ''}
+              {formatNumber(value, 0)}
+            </span>
+          );
+        },
+        size: 110,
       },
     ],
     []

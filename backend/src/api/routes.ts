@@ -201,4 +201,38 @@ router.get('/market/exchangeInfo', async (req: Request, res: Response) => {
   }
 });
 
+// Proxy endpoint for Open Interest (single symbol)
+router.get('/market/openInterest/:symbol', async (req: Request, res: Response) => {
+  try {
+    const { symbol } = req.params;
+    const response = await axios.get(`${BINANCE_API}/fapi/v1/openInterest`, {
+      params: { symbol: symbol.toUpperCase() },
+      timeout: 5000,
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.error(`Error fetching OI for ${req.params.symbol}:`, error);
+    res.status(500).json({ error: 'Failed to fetch open interest' });
+  }
+});
+
+// Proxy endpoint for Aggregate Trades (for CVD calculation)
+router.get('/market/aggTrades/:symbol', async (req: Request, res: Response) => {
+  try {
+    const { symbol } = req.params;
+    const limit = req.query.limit || 1000;
+    const response = await axios.get(`${BINANCE_API}/fapi/v1/aggTrades`, {
+      params: {
+        symbol: symbol.toUpperCase(),
+        limit: parseInt(limit as string)
+      },
+      timeout: 5000,
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.error(`Error fetching agg trades for ${req.params.symbol}:`, error);
+    res.status(500).json({ error: 'Failed to fetch aggregate trades' });
+  }
+});
+
 export default router;

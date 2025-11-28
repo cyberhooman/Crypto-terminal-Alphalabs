@@ -79,14 +79,19 @@ export class BinanceAPI {
   // Get open interest for a specific symbol
   async getOpenInterest(symbol: string): Promise<OpenInterest> {
     try {
-      const response = await axios.get(`${this.baseURL}/fapi/v1/openInterest`, {
-        params: { symbol },
-      });
+      const url = USE_BACKEND_PROXY
+        ? `${this.backendURL}/openInterest/${symbol}`
+        : `${this.baseURL}/fapi/v1/openInterest`;
+
+      const response = USE_BACKEND_PROXY
+        ? await axios.get(url)
+        : await axios.get(url, { params: { symbol } });
+
       return {
         symbol: response.data.symbol,
         openInterest: parseFloat(response.data.openInterest),
         openInterestValue: 0, // Will be calculated
-        timestamp: response.data.time,
+        timestamp: response.data.time || Date.now(),
       };
     } catch (error) {
       console.error('Error fetching open interest:', error);
@@ -174,9 +179,14 @@ export class BinanceAPI {
     limit: number = 1000
   ): Promise<any[]> {
     try {
-      const response = await axios.get(`${this.baseURL}/fapi/v1/aggTrades`, {
-        params: { symbol, limit },
-      });
+      const url = USE_BACKEND_PROXY
+        ? `${this.backendURL}/aggTrades/${symbol}?limit=${limit}`
+        : `${this.baseendURL}/fapi/v1/aggTrades`;
+
+      const response = USE_BACKEND_PROXY
+        ? await axios.get(url)
+        : await axios.get(url, { params: { symbol, limit } });
+
       return response.data.map((trade: any) => ({
         aggTradeId: trade.a,
         price: parseFloat(trade.p),
