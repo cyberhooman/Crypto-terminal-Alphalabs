@@ -14,12 +14,14 @@ CREATE TABLE IF NOT EXISTS confluence_alerts (
   confluence_score INTEGER NOT NULL,
   timestamp BIGINT NOT NULL,
   data JSONB NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_symbol (symbol),
-  INDEX idx_timestamp (timestamp),
-  INDEX idx_severity (severity),
-  INDEX idx_setup_type (setup_type)
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Create indexes for better query performance
+CREATE INDEX IF NOT EXISTS idx_symbol ON confluence_alerts(symbol);
+CREATE INDEX IF NOT EXISTS idx_timestamp ON confluence_alerts(timestamp);
+CREATE INDEX IF NOT EXISTS idx_severity ON confluence_alerts(severity);
+CREATE INDEX IF NOT EXISTS idx_setup_type ON confluence_alerts(setup_type);
 
 -- Create index for timestamp-based queries (48-hour window)
 CREATE INDEX IF NOT EXISTS idx_alerts_recent
