@@ -206,21 +206,19 @@ function AlertCard({
         <div className="bg-gray-900/50 p-2 rounded">
           <div className="text-gray-500">Funding APR</div>
           <div className={`font-mono font-semibold ${
-            alert.data.fundingAPR > 0 ? 'text-green-400' : 'text-red-400'
+            (alert.data.fundingAPR || 0) > 0 ? 'text-green-400' : 'text-red-400'
           }`}>
-            {alert.data.fundingAPR != null ? (
-              <>{alert.data.fundingAPR > 0 ? '+' : ''}{alert.data.fundingAPR.toFixed(1)}%</>
-            ) : '—'}
+            {(alert.data.fundingAPR || 0) > 0 ? '+' : ''}
+            {(alert.data.fundingAPR || 0).toFixed(1)}%
           </div>
         </div>
         <div className="bg-gray-900/50 p-2 rounded">
           <div className="text-gray-500">OI Change</div>
           <div className={`font-mono font-semibold ${
-            alert.data.oiChange > 0 ? 'text-green-400' : 'text-red-400'
+            (alert.data.oiChange || 0) > 0 ? 'text-green-400' : 'text-red-400'
           }`}>
-            {alert.data.oiChange != null ? (
-              <>{alert.data.oiChange > 0 ? '+' : ''}{alert.data.oiChange.toFixed(1)}%</>
-            ) : '—'}
+            {(alert.data.oiChange || 0) > 0 ? '+' : ''}
+            {(alert.data.oiChange || 0).toFixed(1)}%
           </div>
         </div>
         <div className="bg-gray-900/50 p-2 rounded">
@@ -229,17 +227,16 @@ function AlertCard({
             alert.data.cvdTrend === 'UP' ? 'text-green-400' :
             alert.data.cvdTrend === 'DOWN' ? 'text-red-400' : 'text-gray-400'
           }`}>
-            {alert.data.cvdTrend || '—'}
+            {alert.data.cvdTrend || 'NEUTRAL'}
           </div>
         </div>
         <div className="bg-gray-900/50 p-2 rounded">
           <div className="text-gray-500">Price Δ</div>
           <div className={`font-mono font-semibold ${
-            alert.data.priceChange > 0 ? 'text-green-400' : 'text-red-400'
+            (alert.data.priceChange || 0) > 0 ? 'text-green-400' : 'text-red-400'
           }`}>
-            {alert.data.priceChange != null ? (
-              <>{alert.data.priceChange > 0 ? '+' : ''}{alert.data.priceChange.toFixed(1)}%</>
-            ) : '—'}
+            {(alert.data.priceChange || 0) > 0 ? '+' : ''}
+            {(alert.data.priceChange || 0).toFixed(1)}%
           </div>
         </div>
       </div>

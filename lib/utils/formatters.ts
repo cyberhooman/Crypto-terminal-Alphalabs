@@ -1,35 +1,34 @@
 // Utility functions for formatting data
 
 export function formatNumber(value: number, decimals: number = 2): string {
-  if (value == null || isNaN(value)) return '—';
-  if (Math.abs(value) >= 1e9) {
-    return (value / 1e9).toFixed(decimals) + 'B';
+  // Safer pattern: use || 0 to provide default value
+  const safeValue = value || 0;
+  if (Math.abs(safeValue) >= 1e9) {
+    return (safeValue / 1e9).toFixed(decimals) + 'B';
   }
-  if (Math.abs(value) >= 1e6) {
-    return (value / 1e6).toFixed(decimals) + 'M';
+  if (Math.abs(safeValue) >= 1e6) {
+    return (safeValue / 1e6).toFixed(decimals) + 'M';
   }
-  if (Math.abs(value) >= 1e3) {
-    return (value / 1e3).toFixed(decimals) + 'K';
+  if (Math.abs(safeValue) >= 1e3) {
+    return (safeValue / 1e3).toFixed(decimals) + 'K';
   }
-  return value.toFixed(decimals);
+  return safeValue.toFixed(decimals);
 }
 
 export function formatCurrency(value: number, decimals: number = 2): string {
-  if (value == null || isNaN(value)) return '—';
-  return '$' + formatNumber(value, decimals);
+  return '$' + formatNumber(value || 0, decimals);
 }
 
 export function formatPercentage(value: number, decimals: number = 4): string {
-  if (value == null || isNaN(value)) return '—';
-  return (value * 100).toFixed(decimals) + '%';
+  return ((value || 0) * 100).toFixed(decimals) + '%';
 }
 
 export function formatPrice(value: number): string {
-  if (value == null || isNaN(value)) return '—';
-  if (value >= 1000) return value.toFixed(2);
-  if (value >= 1) return value.toFixed(4);
-  if (value >= 0.01) return value.toFixed(6);
-  return value.toFixed(8);
+  const safeValue = value || 0;
+  if (safeValue >= 1000) return safeValue.toFixed(2);
+  if (safeValue >= 1) return safeValue.toFixed(4);
+  if (safeValue >= 0.01) return safeValue.toFixed(6);
+  return safeValue.toFixed(8);
 }
 
 export function formatDateTime(timestamp: number): string {
