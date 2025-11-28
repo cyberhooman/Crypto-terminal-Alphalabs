@@ -114,6 +114,25 @@ router.get('/alerts/severity/:severity', async (req: Request, res: Response) => 
   }
 });
 
+// DELETE all alerts (admin endpoint for "Clear All" button)
+router.delete('/alerts', async (req: Request, res: Response) => {
+  try {
+    const result = await pool.query('DELETE FROM confluence_alerts RETURNING id');
+    const deletedCount = result.rowCount || 0;
+
+    console.log(`🗑️  Deleted ${deletedCount} alerts from database (user triggered)`);
+
+    res.json({
+      success: true,
+      deleted: deletedCount,
+      message: `Successfully deleted ${deletedCount} alert${deletedCount !== 1 ? 's' : ''} from database`,
+    });
+  } catch (error) {
+    console.error('❌ Error deleting alerts:', error);
+    res.status(500).json({ error: 'Failed to delete alerts from database' });
+  }
+});
+
 // Manual cleanup endpoint
 router.post('/cleanup', async (req: Request, res: Response) => {
   try {

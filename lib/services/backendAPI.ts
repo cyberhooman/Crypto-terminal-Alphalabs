@@ -22,6 +22,25 @@ export class BackendAPI {
     }
   }
 
+  // Delete all alerts from backend database
+  async deleteAllAlerts(): Promise<{ success: boolean; deleted: number; message: string }> {
+    try {
+      const response = await axios.delete(`${this.baseURL}/alerts`);
+      return {
+        success: response.data.success,
+        deleted: response.data.deleted,
+        message: response.data.message,
+      };
+    } catch (error) {
+      console.error('Error deleting alerts from backend:', error);
+      return {
+        success: false,
+        deleted: 0,
+        message: 'Failed to delete alerts from backend',
+      };
+    }
+  }
+
   // Fetch alerts for specific symbol
   async getAlertsForSymbol(symbol: string): Promise<ConfluenceAlert[]> {
     try {

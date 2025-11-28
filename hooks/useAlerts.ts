@@ -116,9 +116,28 @@ export function useAlerts() {
     };
   }, [fetchBackendAlerts, cleanupOldAlerts]);
 
+  // Clear alerts from both local state AND backend database
+  const clearAlertsFromBackend = useCallback(async () => {
+    try {
+      // Clear local state immediately for instant UI feedback
+      clearConfluenceAlerts();
+
+      // Clear backend database
+      const result = await backendAPI.deleteAllAlerts();
+
+      if (result.success) {
+        console.log(`✅ ${result.message}`);
+      } else {
+        console.error('❌ Failed to clear alerts from backend:', result.message);
+      }
+    } catch (error) {
+      console.error('❌ Error clearing alerts from backend:', error);
+    }
+  }, [clearConfluenceAlerts]);
+
   return {
     alerts: confluenceAlerts,
     removeAlert: removeConfluenceAlert,
-    clearAlerts: clearConfluenceAlerts,
+    clearAlerts: clearAlertsFromBackend,
   };
 }
