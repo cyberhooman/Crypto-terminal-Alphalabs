@@ -3,18 +3,26 @@ import axios from 'axios';
 import type { Symbol, FundingRate, OpenInterest, TickerData } from '../types';
 
 const BINANCE_FUTURES_API = 'https://fapi.binance.com';
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+const USE_BACKEND_PROXY = true; // Set to true to use backend proxy (avoids Railway timeout)
 
 export class BinanceAPI {
   private baseURL: string;
+  private backendURL: string;
 
   constructor(baseURL: string = BINANCE_FUTURES_API) {
     this.baseURL = baseURL;
+    this.backendURL = `${BACKEND_URL}/api/market`;
   }
 
   // Get all available futures symbols
   async getExchangeInfo(): Promise<Symbol[]> {
     try {
-      const response = await axios.get(`${this.baseURL}/fapi/v1/exchangeInfo`);
+      const url = USE_BACKEND_PROXY
+        ? `${this.backendURL}/exchangeInfo`
+        : `${this.baseURL}/fapi/v1/exchangeInfo`;
+
+      const response = await axios.get(url);
       return response.data.symbols
         .filter((s: any) => s.status === 'TRADING' && s.contractType === 'PERPETUAL')
         .map((s: any) => ({
@@ -33,7 +41,11 @@ export class BinanceAPI {
   // Get current funding rate for all symbols
   async getFundingRates(): Promise<FundingRate[]> {
     try {
-      const response = await axios.get(`${this.baseURL}/fapi/v1/premiumIndex`);
+      const url = USE_BACKEND_PROXY
+        ? `${this.backendURL}/funding`
+        : `${this.baseURL}/fapi/v1/premiumIndex`;
+
+      const response = await axios.get(url);
       return response.data.map((item: any) => ({
         symbol: item.symbol,
         fundingRate: parseFloat(item.lastFundingRate),
@@ -103,7 +115,11 @@ export class BinanceAPI {
   async get24hrTicker(symbol?: string): Promise<TickerData[]> {
     try {
       const params = symbol ? { symbol } : {};
-      const response = await axios.get(`${this.baseURL}/fapi/v1/ticker/24hr`, { params });
+      const url = USE_BACKEND_PROXY
+        ? `${this.backendURL}/ticker`
+        : `${this.baseURL}/fapi/v1/ticker/24hr`;
+
+      const response = await axios.get(url, { params });
       const data = Array.isArray(response.data) ? response.data : [response.data];
 
       return data.map((item: any) => ({

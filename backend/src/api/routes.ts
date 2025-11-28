@@ -2,8 +2,11 @@
 import { Router, Request, Response } from 'express';
 import pool from '../db/client';
 import { cleanupOldAlerts } from '../db/schema';
+import axios from 'axios';
 
 const router = Router();
+
+const BINANCE_API = 'https://fapi.binance.com';
 
 // Health check
 router.get('/health', (req: Request, res: Response) => {
@@ -156,6 +159,45 @@ router.get('/stats', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error fetching stats:', error);
     res.status(500).json({ error: 'Failed to fetch stats' });
+  }
+});
+
+// Proxy endpoint for Binance market data (avoids timeout on frontend)
+router.get('/market/ticker', async (req: Request, res: Response) => {
+  try {
+    const response = await axios.get(`${BINANCE_API}/fapi/v1/ticker/24hr`, {
+      timeout: 10000,
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error fetching ticker data:', error);
+    res.status(500).json({ error: 'Failed to fetch market data' });
+  }
+});
+
+// Proxy endpoint for funding rates
+router.get('/market/funding', async (req: Request, res: Response) => {
+  try {
+    const response = await axios.get(`${BINANCE_API}/fapi/v1/premiumIndex`, {
+      timeout: 10000,
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error fetching funding rates:', error);
+    res.status(500).json({ error: 'Failed to fetch funding rates' });
+  }
+});
+
+// Proxy endpoint for exchange info
+router.get('/market/exchangeInfo', async (req: Request, res: Response) => {
+  try {
+    const response = await axios.get(`${BINANCE_API}/fapi/v1/exchangeInfo`, {
+      timeout: 10000,
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error fetching exchange info:', error);
+    res.status(500).json({ error: 'Failed to fetch exchange info' });
   }
 });
 
