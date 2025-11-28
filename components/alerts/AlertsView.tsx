@@ -16,7 +16,7 @@ export default function AlertsView() {
   };
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-black">
+    <div className="flex-1 flex flex-col h-full overflow-hidden bg-black">
       <AlertPanel
         alerts={alerts}
         onDismiss={removeAlert}
