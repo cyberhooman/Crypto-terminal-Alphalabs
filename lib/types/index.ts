@@ -62,6 +62,8 @@ export interface MarketData {
   low: number;
   trades: number;
   lastUpdate: number;
+  markPrice?: number; // Optional - from WebSocket mark price stream
+  indexPrice?: number; // Optional - from WebSocket mark price stream
 }
 
 export interface FilterCondition {

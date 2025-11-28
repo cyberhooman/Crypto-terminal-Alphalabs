@@ -51,8 +51,7 @@ export function useBinanceWebSocket() {
             high: parseFloat(ticker.h),
             low: parseFloat(ticker.l),
             trades: ticker.n,
-            openTime: ticker.O,
-            closeTime: ticker.C,
+            lastUpdate: ticker.E,
           });
         });
 
