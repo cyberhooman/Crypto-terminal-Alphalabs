@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { X, TrendingUp, BarChart3, Clock, DollarSign } from 'lucide-react';
+import { X, TrendingUp, TrendingDown, BarChart3, Clock, DollarSign, Maximize2, Download } from 'lucide-react';
 import type { MarketData } from '@/lib/types';
 import { formatPrice, formatPercentage, formatNumber } from '@/lib/utils/formatters';
 
@@ -40,7 +40,7 @@ export default function ChartModal({ symbol, data, onClose }: ChartModalProps) {
     ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
 
     // Clear canvas
-    ctx.fillStyle = '#0a0a0a';
+    ctx.fillStyle = '#0a0b0d';
     ctx.fillRect(0, 0, rect.width, rect.height);
 
     // Generate mock candlestick data
@@ -57,102 +57,196 @@ export default function ChartModal({ symbol, data, onClose }: ChartModalProps) {
     drawGrid(ctx, rect.width, rect.height);
   }, [data, chartType, timeframe]);
 
+  const base = symbol.replace('USDT', '');
+  const isPositive = data.priceChangePercent >= 0;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div className="bg-gray-950 rounded-xl border border-gray-800 w-full max-w-7xl h-[90vh] flex flex-col shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-800">
-          <div className="flex items-center gap-4">
-            <h2 className="text-2xl font-bold text-white">
-              {symbol.replace('USDT', '/USDT')}
-            </h2>
-            <div className="flex items-center gap-2">
-              <span className="text-3xl font-mono text-white">
-                ${formatPrice(data.price)}
-              </span>
-              <span
-                className={`text-lg font-semibold ${
-                  data.priceChangePercent >= 0 ? 'text-green-400' : 'text-red-400'
-                }`}
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-6 animate-fade-in"
+      style={{ background: 'rgba(0, 0, 0, 0.85)', backdropFilter: 'blur(8px)' }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-7xl h-[92vh] flex flex-col rounded-2xl overflow-hidden shadow-2xl animate-slide-in-right"
+        style={{
+          background: 'var(--surface-elevated)',
+          border: '1px solid var(--border-light)'
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Premium Header */}
+        <div
+          className="relative px-6 py-5 border-b"
+          style={{
+            background: 'linear-gradient(135deg, var(--surface) 0%, var(--surface-elevated) 100%)',
+            borderColor: 'var(--border-light)'
+          }}
+        >
+          <div className="flex items-center justify-between">
+            {/* Symbol & Price */}
+            <div className="flex items-center gap-4">
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg"
+                style={{
+                  background: 'linear-gradient(135deg, var(--primary), var(--info))',
+                  color: 'white',
+                  boxShadow: '0 4px 14px rgba(59, 130, 246, 0.4)'
+                }}
               >
-                {data.priceChangePercent >= 0 ? '+' : ''}
-                {data.priceChangePercent.toFixed(2)}%
-              </span>
+                {base.substring(0, 2)}
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                  {base}
+                  <span style={{ color: 'var(--text-tertiary)' }}>/USDT</span>
+                </h2>
+                <div className="flex items-center gap-3 mt-1">
+                  <span className="text-3xl font-mono font-bold" style={{ color: 'var(--text-primary)' }}>
+                    ${formatPrice(data.price)}
+                  </span>
+                  <div
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg"
+                    style={{
+                      background: isPositive ? 'var(--success-light)' : 'var(--danger-light)'
+                    }}
+                  >
+                    {isPositive ? (
+                      <TrendingUp className="w-4 h-4" style={{ color: 'var(--success)' }} />
+                    ) : (
+                      <TrendingDown className="w-4 h-4" style={{ color: 'var(--danger)' }} />
+                    )}
+                    <span
+                      className="text-lg font-semibold"
+                      style={{ color: isPositive ? 'var(--success)' : 'var(--danger)' }}
+                    >
+                      {data.priceChangePercent >= 0 ? '+' : ''}
+                      {data.priceChangePercent.toFixed(2)}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-2">
+              <button
+                className="p-2.5 rounded-lg transition-all"
+                style={{
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text-secondary)'
+                }}
+                title="Fullscreen"
+              >
+                <Maximize2 className="w-5 h-5" />
+              </button>
+              <button
+                className="p-2.5 rounded-lg transition-all"
+                style={{
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text-secondary)'
+                }}
+                title="Export"
+              >
+                <Download className="w-5 h-5" />
+              </button>
+              <button
+                onClick={onClose}
+                className="p-2.5 rounded-lg transition-all"
+                style={{
+                  background: 'var(--danger-light)',
+                  border: '1px solid var(--danger)',
+                  color: 'var(--danger)'
+                }}
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
           </div>
-
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
-          >
-            <X className="w-6 h-6 text-gray-400" />
-          </button>
         </div>
 
-        {/* Stats Bar */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 border-b border-gray-800 bg-gray-900/50">
-          <StatCard
+        {/* Stats Grid */}
+        <div
+          className="grid grid-cols-2 md:grid-cols-4 gap-4 px-6 py-4 border-b"
+          style={{
+            background: 'var(--surface)',
+            borderColor: 'var(--border)'
+          }}
+        >
+          <MetricCard
             icon={<TrendingUp className="w-4 h-4" />}
             label="24h Volume"
             value={`$${formatNumber(data.quoteVolume, 0)}`}
-            color="text-blue-400"
+            color="primary"
           />
-          <StatCard
+          <MetricCard
             icon={<BarChart3 className="w-4 h-4" />}
             label="Open Interest"
             value={`$${formatNumber(data.openInterestValue, 0)}`}
-            color="text-purple-400"
+            color="info"
           />
-          <StatCard
+          <MetricCard
             icon={<Clock className="w-4 h-4" />}
             label="Funding Rate"
             value={formatPercentage(data.fundingRate, 4)}
-            color={data.fundingRate >= 0 ? 'text-green-400' : 'text-red-400'}
+            color={data.fundingRate >= 0 ? 'success' : 'danger'}
           />
-          <StatCard
+          <MetricCard
             icon={<DollarSign className="w-4 h-4" />}
             label="CVD"
             value={formatNumber(data.cvd, 0)}
-            color={data.cvd >= 0 ? 'text-green-400' : 'text-red-400'}
+            color={data.cvd >= 0 ? 'success' : 'danger'}
           />
         </div>
 
         {/* Chart Controls */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-800">
-          <div className="flex gap-2">
+        <div
+          className="flex items-center justify-between px-6 py-3 border-b"
+          style={{
+            background: 'var(--surface)',
+            borderColor: 'var(--border)'
+          }}
+        >
+          {/* Timeframes */}
+          <div className="flex gap-1.5">
             {['1m', '5m', '15m', '30m', '1h', '4h', '1d'].map((tf) => (
               <button
                 key={tf}
                 onClick={() => setTimeframe(tf)}
-                className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                  timeframe === tf
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-                }`}
+                className="px-3 py-1.5 text-sm font-semibold rounded-lg transition-all"
+                style={{
+                  background: timeframe === tf ? 'var(--primary)' : 'var(--surface-elevated)',
+                  color: timeframe === tf ? 'white' : 'var(--text-secondary)',
+                  border: `1px solid ${timeframe === tf ? 'var(--primary)' : 'var(--border)'}`,
+                }}
               >
                 {tf}
               </button>
             ))}
           </div>
 
-          <div className="flex gap-2">
+          {/* Chart Type */}
+          <div className="flex gap-1.5">
             <button
               onClick={() => setChartType('candlestick')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                chartType === 'candlestick'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-              }`}
+              className="px-4 py-1.5 text-sm font-semibold rounded-lg transition-all"
+              style={{
+                background: chartType === 'candlestick' ? 'var(--primary)' : 'var(--surface-elevated)',
+                color: chartType === 'candlestick' ? 'white' : 'var(--text-secondary)',
+                border: `1px solid ${chartType === 'candlestick' ? 'var(--primary)' : 'var(--border)'}`,
+              }}
             >
               Candlesticks
             </button>
             <button
               onClick={() => setChartType('line')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                chartType === 'line'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-              }`}
+              className="px-4 py-1.5 text-sm font-semibold rounded-lg transition-all"
+              style={{
+                background: chartType === 'line' ? 'var(--primary)' : 'var(--surface-elevated)',
+                color: chartType === 'line' ? 'white' : 'var(--text-secondary)',
+                border: `1px solid ${chartType === 'line' ? 'var(--primary)' : 'var(--border)'}`,
+              }}
             >
               Line
             </button>
@@ -160,41 +254,38 @@ export default function ChartModal({ symbol, data, onClose }: ChartModalProps) {
         </div>
 
         {/* Chart Area */}
-        <div className="flex-1 p-4 overflow-hidden">
+        <div className="flex-1 p-6 overflow-hidden" style={{ background: 'var(--background)' }}>
           <canvas
             ref={canvasRef}
-            className="w-full h-full rounded-lg"
-            style={{ imageRendering: 'crisp-edges' }}
+            className="w-full h-full rounded-xl"
+            style={{
+              imageRendering: 'crisp-edges',
+              border: '1px solid var(--border)'
+            }}
           />
         </div>
 
-        {/* Footer Info */}
-        <div className="p-4 border-t border-gray-800 bg-gray-900/50">
+        {/* Footer Stats */}
+        <div
+          className="px-6 py-4 border-t"
+          style={{
+            background: 'var(--surface)',
+            borderColor: 'var(--border)'
+          }}
+        >
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div>
-              <span className="text-gray-500">High 24h:</span>
-              <span className="text-white ml-2 font-mono">
-                ${formatPrice(data.high)}
-              </span>
-            </div>
-            <div>
-              <span className="text-gray-500">Low 24h:</span>
-              <span className="text-white ml-2 font-mono">
-                ${formatPrice(data.low)}
-              </span>
-            </div>
-            <div>
-              <span className="text-gray-500">Buy Volume:</span>
-              <span className="text-green-400 ml-2 font-mono">
-                {formatNumber(data.buyVolume, 0)}
-              </span>
-            </div>
-            <div>
-              <span className="text-gray-500">Sell Volume:</span>
-              <span className="text-red-400 ml-2 font-mono">
-                {formatNumber(data.sellVolume, 0)}
-              </span>
-            </div>
+            <FooterStat label="High 24h" value={`$${formatPrice(data.high)}`} />
+            <FooterStat label="Low 24h" value={`$${formatPrice(data.low)}`} />
+            <FooterStat
+              label="Buy Volume"
+              value={formatNumber(data.buyVolume, 0)}
+              color="success"
+            />
+            <FooterStat
+              label="Sell Volume"
+              value={formatNumber(data.sellVolume, 0)}
+              color="danger"
+            />
           </div>
         </div>
       </div>
@@ -202,7 +293,7 @@ export default function ChartModal({ symbol, data, onClose }: ChartModalProps) {
   );
 }
 
-function StatCard({
+function MetricCard({
   icon,
   label,
   value,
@@ -211,15 +302,57 @@ function StatCard({
   icon: React.ReactNode;
   label: string;
   value: string;
-  color: string;
+  color: 'primary' | 'success' | 'danger' | 'info';
 }) {
+  const colorMap = {
+    primary: 'var(--primary)',
+    success: 'var(--success)',
+    danger: 'var(--danger)',
+    info: 'var(--info)',
+  };
+
   return (
-    <div className="flex items-center gap-3 p-3 bg-gray-800/50 rounded-lg">
-      <div className={`${color}`}>{icon}</div>
+    <div
+      className="flex items-center gap-3 p-3 rounded-lg"
+      style={{
+        background: 'var(--surface-elevated)',
+        border: '1px solid var(--border)'
+      }}
+    >
+      <div style={{ color: colorMap[color] }}>{icon}</div>
       <div>
-        <div className="text-xs text-gray-500">{label}</div>
-        <div className={`text-sm font-semibold ${color}`}>{value}</div>
+        <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+          {label}
+        </div>
+        <div className="text-sm font-bold" style={{ color: colorMap[color] }}>
+          {value}
+        </div>
       </div>
+    </div>
+  );
+}
+
+function FooterStat({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: string;
+  color?: 'success' | 'danger';
+}) {
+  const textColor = color
+    ? color === 'success'
+      ? 'var(--success)'
+      : 'var(--danger)'
+    : 'var(--text-primary)';
+
+  return (
+    <div>
+      <span style={{ color: 'var(--text-tertiary)' }}>{label}:</span>
+      <span className="ml-2 font-mono font-semibold" style={{ color: textColor }}>
+        {value}
+      </span>
     </div>
   );
 }
@@ -278,7 +411,7 @@ function drawCandlestickChart(
       padding + chartHeight - ((candle.low - minPrice) / priceRange) * chartHeight;
 
     // Draw wick
-    ctx.strokeStyle = isGreen ? '#22c55e' : '#ef4444';
+    ctx.strokeStyle = isGreen ? '#10b981' : '#ef4444';
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(x, highY);
@@ -286,7 +419,7 @@ function drawCandlestickChart(
     ctx.stroke();
 
     // Draw body
-    ctx.fillStyle = isGreen ? '#22c55e' : '#ef4444';
+    ctx.fillStyle = isGreen ? '#10b981' : '#ef4444';
     const bodyHeight = Math.abs(closeY - openY);
     const bodyY = Math.min(openY, closeY);
     ctx.fillRect(x - bodyWidth / 2, bodyY, bodyWidth, Math.max(bodyHeight, 1));
@@ -342,7 +475,7 @@ function drawLineChart(
 // Draw grid
 function drawGrid(ctx: CanvasRenderingContext2D, width: number, height: number) {
   const padding = 40;
-  ctx.strokeStyle = '#1f2937';
+  ctx.strokeStyle = '#2a2d35';
   ctx.lineWidth = 1;
 
   // Horizontal lines

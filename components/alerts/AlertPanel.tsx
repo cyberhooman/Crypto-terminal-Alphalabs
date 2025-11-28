@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Bell, TrendingUp, TrendingDown, AlertTriangle, X, Volume2, Trash2 } from 'lucide-react';
+import { Bell, TrendingUp, TrendingDown, AlertTriangle, X, Volume2, Trash2, Zap, Target } from 'lucide-react';
 import type { ConfluenceAlert } from '@/lib/alerts/confluenceDetector';
 import { AlertSeverity, SetupType } from '@/lib/alerts/confluenceDetector';
 
@@ -42,14 +42,33 @@ export default function AlertPanel({ alerts, onDismiss, onClearAll, onSymbolClic
   if (alerts.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <Bell className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-400 mb-2">
+        <div className="text-center max-w-md">
+          <div
+            className="w-24 h-24 mx-auto mb-6 rounded-2xl flex items-center justify-center"
+            style={{
+              background: 'var(--surface-elevated)',
+              border: '1px solid var(--border)'
+            }}
+          >
+            <Bell className="w-12 h-12" style={{ color: 'var(--text-tertiary)' }} />
+          </div>
+          <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
             No Active Alerts
           </h2>
-          <p className="text-gray-500">
+          <p style={{ color: 'var(--text-secondary)' }}>
             Monitoring markets for confluence setups...
           </p>
+          <div
+            className="mt-6 p-4 rounded-lg"
+            style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)'
+            }}
+          >
+            <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+              Alerts will appear here when confluence patterns are detected
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -57,25 +76,32 @@ export default function AlertPanel({ alerts, onDismiss, onClearAll, onSymbolClic
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
-      {/* Header */}
-      <div className="bg-gray-900 border-b border-gray-800 p-4 flex-shrink-0">
-        <div className="flex items-center justify-between">
+      {/* Modern Header */}
+      <div
+        className="px-6 py-5 border-b flex-shrink-0"
+        style={{
+          background: 'var(--surface)',
+          borderColor: 'var(--border)'
+        }}
+      >
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-4">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <Bell className="w-5 h-5 text-blue-400" />
-              Confluence Alerts
-            </h2>
-            <div className="flex gap-2">
-              {criticalCount > 0 && (
-                <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs font-bold rounded-full">
-                  {criticalCount} CRITICAL
-                </span>
-              )}
-              {highCount > 0 && (
-                <span className="px-2 py-1 bg-orange-500/20 text-orange-400 text-xs font-bold rounded-full">
-                  {highCount} HIGH
-                </span>
-              )}
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{
+                background: 'linear-gradient(135deg, var(--warning), var(--danger))',
+                boxShadow: '0 4px 14px rgba(245, 158, 11, 0.4)'
+              }}
+            >
+              <Zap className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                Confluence Alerts
+              </h2>
+              <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                High-probability trading setups
+              </p>
             </div>
           </div>
 
@@ -83,8 +109,12 @@ export default function AlertPanel({ alerts, onDismiss, onClearAll, onSymbolClic
             {alerts.length > 0 && onClearAll && (
               <button
                 onClick={onClearAll}
-                className="px-3 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
-                title="Clear all alerts"
+                className="px-4 py-2 rounded-lg transition-all flex items-center gap-2 font-medium text-sm"
+                style={{
+                  background: 'var(--danger-light)',
+                  color: 'var(--danger)',
+                  border: '1px solid var(--danger)'
+                }}
               >
                 <Trash2 className="w-4 h-4" />
                 Clear All
@@ -92,9 +122,12 @@ export default function AlertPanel({ alerts, onDismiss, onClearAll, onSymbolClic
             )}
             <button
               onClick={() => setSoundEnabled(!soundEnabled)}
-              className={`p-2 rounded-lg transition-colors ${
-                soundEnabled ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'
-              }`}
+              className="p-2.5 rounded-lg transition-all"
+              style={{
+                background: soundEnabled ? 'var(--primary)' : 'var(--surface-elevated)',
+                color: soundEnabled ? 'white' : 'var(--text-secondary)',
+                border: `1px solid ${soundEnabled ? 'var(--primary)' : 'var(--border)'}`
+              }}
               title="Toggle sound"
             >
               <Volume2 className="w-4 h-4" />
@@ -102,17 +135,50 @@ export default function AlertPanel({ alerts, onDismiss, onClearAll, onSymbolClic
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="flex gap-2 mt-4">
+        {/* Alert Stats */}
+        <div className="flex items-center gap-3 mb-4">
+          {criticalCount > 0 && (
+            <div
+              className="px-3 py-1.5 rounded-lg flex items-center gap-2"
+              style={{
+                background: 'var(--danger-light)',
+                border: '1px solid var(--danger)'
+              }}
+            >
+              <AlertTriangle className="w-4 h-4" style={{ color: 'var(--danger)' }} />
+              <span className="text-sm font-bold" style={{ color: 'var(--danger)' }}>
+                {criticalCount} CRITICAL
+              </span>
+            </div>
+          )}
+          {highCount > 0 && (
+            <div
+              className="px-3 py-1.5 rounded-lg flex items-center gap-2"
+              style={{
+                background: 'var(--warning-light)',
+                border: '1px solid var(--warning)'
+              }}
+            >
+              <Target className="w-4 h-4" style={{ color: 'var(--warning)' }} />
+              <span className="text-sm font-bold" style={{ color: 'var(--warning)' }}>
+                {highCount} HIGH
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Filter Tabs */}
+        <div className="flex gap-2">
           {(['ALL', 'CRITICAL', 'HIGH', 'MEDIUM'] as FilterType[]).map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                filter === f
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-              }`}
+              className="px-4 py-2 text-sm font-semibold rounded-lg transition-all"
+              style={{
+                background: filter === f ? 'var(--primary)' : 'var(--surface-elevated)',
+                color: filter === f ? 'white' : 'var(--text-secondary)',
+                border: `1px solid ${filter === f ? 'var(--primary)' : 'var(--border)'}`,
+              }}
             >
               {f}
             </button>
@@ -121,10 +187,16 @@ export default function AlertPanel({ alerts, onDismiss, onClearAll, onSymbolClic
       </div>
 
       {/* Alerts List */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-3 min-h-0">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 space-y-4 min-h-0" style={{ background: 'var(--background)' }}>
         {filteredAlerts.length < alerts.length && (
-          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 mb-3">
-            <p className="text-yellow-400 text-sm">
+          <div
+            className="p-4 rounded-lg border"
+            style={{
+              background: 'var(--warning-light)',
+              borderColor: 'var(--warning)'
+            }}
+          >
+            <p className="text-sm font-medium" style={{ color: 'var(--warning)' }}>
               ℹ️ Showing {filteredAlerts.length} of {alerts.length} alerts. Dismiss old alerts to see more.
             </p>
           </div>
@@ -151,120 +223,163 @@ function AlertCard({
   onDismiss: () => void;
   onSymbolClick?: (symbol: string) => void;
 }) {
-  const severityColors = {
-    CRITICAL: 'border-red-500 bg-red-500/10',
-    HIGH: 'border-orange-500 bg-orange-500/10',
-    MEDIUM: 'border-yellow-500 bg-yellow-500/10',
-    LOW: 'border-blue-500 bg-blue-500/10',
+  const severityConfig = {
+    CRITICAL: { border: 'var(--danger)', bg: 'var(--danger-light)', icon: AlertTriangle, iconColor: 'var(--danger)' },
+    HIGH: { border: 'var(--warning)', bg: 'var(--warning-light)', icon: Target, iconColor: 'var(--warning)' },
+    MEDIUM: { border: 'var(--info)', bg: 'var(--info-light)', icon: Bell, iconColor: 'var(--info)' },
+    LOW: { border: 'var(--primary)', bg: 'var(--primary-light)', icon: Bell, iconColor: 'var(--primary)' },
   };
 
   const setupIcons = {
-    SHORT_SQUEEZE: <TrendingUp className="w-5 h-5 text-green-400" />,
-    LONG_FLUSH: <TrendingDown className="w-5 h-5 text-red-400" />,
-    CAPITULATION_BOTTOM: <TrendingUp className="w-5 h-5 text-green-500" />,
-    CAPITULATION_TOP: <TrendingDown className="w-5 h-5 text-red-500" />,
-    BULLISH_DIVERGENCE: <TrendingUp className="w-5 h-5 text-blue-400" />,
-    BEARISH_DIVERGENCE: <TrendingDown className="w-5 h-5 text-orange-400" />,
+    SHORT_SQUEEZE: <TrendingUp className="w-5 h-5" style={{ color: 'var(--success)' }} />,
+    LONG_FLUSH: <TrendingDown className="w-5 h-5" style={{ color: 'var(--danger)' }} />,
+    CAPITULATION_BOTTOM: <TrendingUp className="w-5 h-5" style={{ color: 'var(--success-dark)' }} />,
+    CAPITULATION_TOP: <TrendingDown className="w-5 h-5" style={{ color: 'var(--danger-dark)' }} />,
+    BULLISH_DIVERGENCE: <TrendingUp className="w-5 h-5" style={{ color: 'var(--info)' }} />,
+    BEARISH_DIVERGENCE: <TrendingDown className="w-5 h-5" style={{ color: 'var(--warning)' }} />,
   };
+
+  const config = severityConfig[alert.severity];
+  const SeverityIcon = config.icon;
 
   return (
     <div
-      className={`border-l-4 ${severityColors[alert.severity]} rounded-lg p-4 relative animate-in slide-in-from-right duration-300`}
+      className="rounded-xl overflow-hidden animate-slide-in-right"
+      style={{
+        background: 'var(--surface)',
+        border: `2px solid ${config.border}`,
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
+      }}
     >
-      {/* Close button */}
-      <button
-        onClick={onDismiss}
-        className="absolute top-2 right-2 p-1 hover:bg-gray-800 rounded transition-colors"
+      {/* Alert Header */}
+      <div
+        className="px-4 py-3 flex items-center justify-between border-b"
+        style={{
+          background: config.bg,
+          borderColor: config.border
+        }}
       >
-        <X className="w-4 h-4 text-gray-400" />
-      </button>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <SeverityIcon className="w-5 h-5" style={{ color: config.iconColor }} />
+            {setupIcons[alert.setupType]}
+          </div>
+          <button
+            onClick={() => onSymbolClick?.(alert.symbol)}
+            className="font-bold text-lg hover:opacity-80 transition-opacity"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            {alert.symbol.replace('USDT', '/USDT')}
+          </button>
+          <div
+            className="px-2 py-0.5 text-xs font-bold rounded"
+            style={{
+              background: config.border,
+              color: 'white'
+            }}
+          >
+            {alert.severity}
+          </div>
+          <div className="text-xs font-semibold" style={{ color: 'var(--text-tertiary)' }}>
+            Score: {alert.confluenceScore}/100
+          </div>
+        </div>
 
-      {/* Header */}
-      <div className="flex items-start gap-3 mb-3">
-        {setupIcons[alert.setupType]}
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <button
-              onClick={() => onSymbolClick?.(alert.symbol)}
-              className="text-lg font-bold text-white hover:text-blue-400 transition-colors"
+        <button
+          onClick={onDismiss}
+          className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+          style={{ color: 'var(--text-secondary)' }}
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Alert Body */}
+      <div className="p-4">
+        <h3 className="font-bold text-base mb-2" style={{ color: 'var(--text-primary)' }}>
+          {alert.title}
+        </h3>
+        <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
+          {alert.description}
+        </p>
+
+        {/* Signals */}
+        <div className="space-y-2 mb-4">
+          {alert.signals.map((signal, i) => (
+            <div
+              key={i}
+              className="flex items-start gap-2 text-sm px-3 py-2 rounded-lg"
+              style={{
+                background: 'var(--surface-elevated)',
+                color: 'var(--text-secondary)'
+              }}
             >
-              {alert.symbol.replace('USDT', '/USDT')}
-            </button>
-            <span
-              className={`px-2 py-0.5 text-xs font-bold rounded ${
-                alert.severity === AlertSeverity.CRITICAL
-                  ? 'bg-red-500 text-white'
-                  : alert.severity === AlertSeverity.HIGH
-                  ? 'bg-orange-500 text-white'
-                  : alert.severity === AlertSeverity.MEDIUM
-                  ? 'bg-yellow-500 text-black'
-                  : 'bg-blue-500 text-white'
-              }`}
-            >
-              {alert.severity}
-            </span>
-            <span className="text-xs text-gray-500">
-              Score: {alert.confluenceScore}/100
-            </span>
-          </div>
-          <h3 className="text-sm font-semibold text-white mb-1">{alert.title}</h3>
-          <p className="text-sm text-gray-400">{alert.description}</p>
+              <span style={{ color: 'var(--primary)' }}>▸</span>
+              <span>{signal}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Data Metrics */}
+        <div className="grid grid-cols-2 gap-2">
+          <MetricBox
+            label="Funding Rate"
+            value={`${((alert.data.fundingRate || 0) * 100).toFixed(4)}%`}
+            isPositive={(alert.data.fundingRate || 0) > 0}
+          />
+          <MetricBox
+            label="OI Change"
+            value={`${(alert.data.oiChange || 0).toFixed(1)}%`}
+            isPositive={(alert.data.oiChange || 0) > 0}
+          />
+          <MetricBox
+            label="CVD Trend"
+            value={alert.data.cvdTrend || 'NEUTRAL'}
+            isPositive={alert.data.cvdTrend === 'UP'}
+          />
+          <MetricBox
+            label="Price Change"
+            value={`${(alert.data.priceChange || 0).toFixed(1)}%`}
+            isPositive={(alert.data.priceChange || 0) > 0}
+          />
+        </div>
+
+        {/* Timestamp */}
+        <div className="mt-3 pt-3 border-t text-xs" style={{ borderColor: 'var(--border)', color: 'var(--text-tertiary)' }}>
+          {new Date(alert.timestamp).toLocaleString()}
         </div>
       </div>
+    </div>
+  );
+}
 
-      {/* Signals */}
-      <div className="space-y-1 mb-3">
-        {alert.signals.map((signal, i) => (
-          <div key={i} className="text-xs text-gray-300 flex items-start gap-2">
-            <span className="text-blue-400">▸</span>
-            <span>{signal}</span>
-          </div>
-        ))}
+function MetricBox({
+  label,
+  value,
+  isPositive,
+}: {
+  label: string;
+  value: string;
+  isPositive: boolean;
+}) {
+  return (
+    <div
+      className="p-2 rounded-lg"
+      style={{
+        background: isPositive ? 'var(--success-light)' : value === 'NEUTRAL' ? 'var(--surface-elevated)' : 'var(--danger-light)',
+        border: `1px solid ${isPositive ? 'var(--success)' : value === 'NEUTRAL' ? 'var(--border)' : 'var(--danger)'}`
+      }}
+    >
+      <div className="text-xs mb-0.5" style={{ color: 'var(--text-tertiary)' }}>
+        {label}
       </div>
-
-      {/* Data Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-        <div className="bg-gray-900/50 p-2 rounded">
-          <div className="text-gray-500">Funding Rate</div>
-          <div className={`font-mono font-semibold ${
-            (alert.data.fundingRate || 0) > 0 ? 'text-green-400' : 'text-red-400'
-          }`}>
-            {(alert.data.fundingRate || 0) > 0 ? '+' : ''}
-            {((alert.data.fundingRate || 0) * 100).toFixed(4)}%
-          </div>
-        </div>
-        <div className="bg-gray-900/50 p-2 rounded">
-          <div className="text-gray-500">OI Change</div>
-          <div className={`font-mono font-semibold ${
-            (alert.data.oiChange || 0) > 0 ? 'text-green-400' : 'text-red-400'
-          }`}>
-            {(alert.data.oiChange || 0) > 0 ? '+' : ''}
-            {(alert.data.oiChange || 0).toFixed(1)}%
-          </div>
-        </div>
-        <div className="bg-gray-900/50 p-2 rounded">
-          <div className="text-gray-500">CVD Trend</div>
-          <div className={`font-mono font-semibold ${
-            alert.data.cvdTrend === 'UP' ? 'text-green-400' :
-            alert.data.cvdTrend === 'DOWN' ? 'text-red-400' : 'text-gray-400'
-          }`}>
-            {alert.data.cvdTrend || 'NEUTRAL'}
-          </div>
-        </div>
-        <div className="bg-gray-900/50 p-2 rounded">
-          <div className="text-gray-500">Price Δ</div>
-          <div className={`font-mono font-semibold ${
-            (alert.data.priceChange || 0) > 0 ? 'text-green-400' : 'text-red-400'
-          }`}>
-            {(alert.data.priceChange || 0) > 0 ? '+' : ''}
-            {(alert.data.priceChange || 0).toFixed(1)}%
-          </div>
-        </div>
-      </div>
-
-      {/* Timestamp */}
-      <div className="text-xs text-gray-500 mt-2">
-        {new Date(alert.timestamp).toLocaleTimeString()}
+      <div
+        className="font-mono text-sm font-bold"
+        style={{
+          color: isPositive ? 'var(--success)' : value === 'NEUTRAL' ? 'var(--text-secondary)' : 'var(--danger)'
+        }}
+      >
+        {isPositive && value !== 'UP' ? '+' : ''}{value}
       </div>
     </div>
   );
