@@ -79,6 +79,7 @@ export default function DataTable({ data }: DataTableProps) {
         cell: ({ getValue }) => {
           const value = getValue() as number;
           const absValue = Math.abs(value);
+          const apr = value * 3 * 365 * 100; // 8hr funding * 3 times per day * 365 days * 100 for percentage
           let color = 'text-gray-300';
 
           if (absValue > 0.0008) color = 'text-red-400 font-bold';
@@ -87,75 +88,57 @@ export default function DataTable({ data }: DataTableProps) {
           else if (value < 0) color = 'text-blue-400';
 
           return (
-            <span className={`font-mono text-sm ${color}`}>
-              {formatPercentage(value, 4)}
-            </span>
+            <div className="flex flex-col">
+              <span className={`font-mono text-sm ${color}`}>
+                {formatPercentage(value, 4)}
+              </span>
+              <span className="font-mono text-xs text-gray-500">
+                {apr >= 0 ? '+' : ''}{apr.toFixed(1)}% APR
+              </span>
+            </div>
           );
         },
-        size: 100,
+        size: 120,
       },
       {
-        accessorKey: 'openInterestValue',
-        header: '8hr OI Change',
+        accessorKey: 'high',
+        header: '24h High',
         cell: ({ getValue }) => (
           <span className="font-mono text-sm text-gray-300">
-            ${formatNumber(getValue() as number, 1)}
+            ${formatPrice(getValue() as number)}
           </span>
         ),
-        size: 140,
-      },
-      {
-        accessorKey: 'cvd',
-        header: '1hr VDelta',
-        cell: ({ getValue }) => {
-          const value = getValue() as number;
-          const color = value >= 0 ? 'text-green-400' : 'text-red-400';
-          return (
-            <span className={`font-mono text-sm ${color}`}>
-              {value >= 0 ? '+' : ''}
-              {formatNumber(value, 0)}
-            </span>
-          );
-        },
         size: 110,
       },
       {
-        accessorKey: 'buyVolume',
-        header: 'Buy Vol',
+        accessorKey: 'low',
+        header: '24h Low',
         cell: ({ getValue }) => (
-          <span className="font-mono text-sm text-green-400">
+          <span className="font-mono text-sm text-gray-300">
+            ${formatPrice(getValue() as number)}
+          </span>
+        ),
+        size: 110,
+      },
+      {
+        accessorKey: 'volume',
+        header: 'Base Volume',
+        cell: ({ getValue }) => (
+          <span className="font-mono text-sm text-gray-400">
+            {formatNumber(getValue() as number, 0)}
+          </span>
+        ),
+        size: 120,
+      },
+      {
+        accessorKey: 'trades',
+        header: 'Trades',
+        cell: ({ getValue }) => (
+          <span className="font-mono text-sm text-gray-400">
             {formatNumber(getValue() as number, 0)}
           </span>
         ),
         size: 100,
-      },
-      {
-        accessorKey: 'sellVolume',
-        header: 'Sell Vol',
-        cell: ({ getValue }) => (
-          <span className="font-mono text-sm text-red-400">
-            {formatNumber(getValue() as number, 0)}
-          </span>
-        ),
-        size: 100,
-      },
-      {
-        id: 'buySellRatio',
-        header: 'B/S Ratio',
-        accessorFn: (row) => {
-          if (row.sellVolume === 0) return 0;
-          return row.buyVolume / row.sellVolume;
-        },
-        cell: ({ getValue }) => {
-          const ratio = getValue() as number;
-          const color = ratio > 1 ? 'text-green-400' : ratio < 1 ? 'text-red-400' : 'text-gray-400';
-          return (
-            <span className={`font-mono text-sm ${color}`}>
-              {ratio.toFixed(2)}
-            </span>
-          );
-        },
-        size: 90,
       },
     ],
     []
