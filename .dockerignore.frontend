@@ -1,0 +1,22 @@
+# Frontend .dockerignore
+# Ignore backend folder
+backend/
+
+# Ignore node_modules (will be installed fresh)
+node_modules/
+.next/
+
+# Ignore environment files
+.env.local
+.env*.local
+
+# Ignore git
+.git/
+.gitignore
+
+# Ignore docs
+*.md
+README.md
+
+# Ignore CI/CD
+.github/
