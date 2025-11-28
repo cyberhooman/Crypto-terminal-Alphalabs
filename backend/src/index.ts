@@ -25,17 +25,25 @@ app.use(express.json());
 app.use('/api', router);
 
 // Signal detection service instance
-const signalDetector = new SignalDetectionService();
+let signalDetector: SignalDetectionService | null = null;
 
-// Startup
+// Startup with retry logic
 async function startServer() {
   try {
     console.log('🚀 Starting Crypto Terminal Backend...');
 
-    // Connect to database
-    await connectDatabase();
+    // Start HTTP server first (so Railway sees it as "running")
+    app.listen(PORT, () => {
+      console.log(`✅ Server running on port ${PORT}`);
+      console.log(`📡 API: http://localhost:${PORT}/api`);
+      console.log(`🎯 Frontend CORS: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
+    });
+
+    // Try to connect to database with retries
+    await connectWithRetry();
 
     // Start signal detection
+    signalDetector = new SignalDetectionService();
     await signalDetector.start();
 
     // Schedule periodic cleanup (every hour)
@@ -45,30 +53,67 @@ async function startServer() {
         console.log(`🧹 Cleaned up ${deleted} old alerts (>48h)`);
       }
     }, 60 * 60 * 1000);
-
-    // Start HTTP server
-    app.listen(PORT, () => {
-      console.log(`✅ Server running on port ${PORT}`);
-      console.log(`📡 API: http://localhost:${PORT}/api`);
-      console.log(`🎯 Frontend CORS: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
-    });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
-    process.exit(1);
+    // Don't exit - keep server running even if DB connection fails
+    console.log('⚠️  Server will continue without database. Retrying connection in background...');
+    retryDatabaseConnection();
   }
+}
+
+// Retry database connection
+async function connectWithRetry(maxRetries = 5) {
+  for (let i = 1; i <= maxRetries; i++) {
+    try {
+      console.log(`🔌 Attempting database connection (${i}/${maxRetries})...`);
+      await connectDatabase();
+      console.log('✅ Connected to PostgreSQL');
+      return;
+    } catch (error) {
+      console.error(`❌ Connection attempt ${i} failed:`, (error as Error).message);
+      if (i < maxRetries) {
+        const delay = Math.min(1000 * Math.pow(2, i), 30000); // Exponential backoff, max 30s
+        console.log(`⏳ Retrying in ${delay / 1000}s...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  throw new Error('Failed to connect to database after maximum retries');
+}
+
+// Keep retrying database connection in background
+function retryDatabaseConnection() {
+  setInterval(async () => {
+    try {
+      console.log('🔄 Retrying database connection...');
+      await connectDatabase();
+      console.log('✅ Database reconnected!');
+      // Start signal detection if it wasn't started
+      if (!signalDetector) {
+        signalDetector = new SignalDetectionService();
+        await signalDetector.start();
+      }
+    } catch (error) {
+      console.error('❌ Database reconnection failed, will retry in 30s');
+    }
+  }, 30000); // Retry every 30 seconds
 }
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
   console.log('\n⏹️  SIGTERM received, shutting down gracefully...');
-  signalDetector.stop();
+  if (signalDetector) {
+    signalDetector.stop();
+  }
   pool.end();
   process.exit(0);
 });
 
 process.on('SIGINT', () => {
   console.log('\n⏹️  SIGINT received, shutting down gracefully...');
-  signalDetector.stop();
+  if (signalDetector) {
+    signalDetector.stop();
+  }
   pool.end();
   process.exit(0);
 });
