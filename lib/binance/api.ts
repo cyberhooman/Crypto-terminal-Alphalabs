@@ -33,6 +33,25 @@ export class BinanceAPI {
           quantityPrecision: s.quantityPrecision,
         }));
     } catch (error) {
+      // If backend proxy fails, try Binance directly as fallback
+      if (USE_BACKEND_PROXY) {
+        console.warn('⚠️ Backend proxy failed, trying Binance directly...');
+        try {
+          const response = await axios.get(`${this.baseURL}/fapi/v1/exchangeInfo`);
+          return response.data.symbols
+            .filter((s: any) => s.status === 'TRADING' && s.contractType === 'PERPETUAL')
+            .map((s: any) => ({
+              symbol: s.symbol,
+              baseAsset: s.baseAsset,
+              quoteAsset: s.quoteAsset,
+              pricePrecision: s.pricePrecision,
+              quantityPrecision: s.quantityPrecision,
+            }));
+        } catch (fallbackError) {
+          console.error('❌ Binance direct fetch also failed:', fallbackError);
+          throw fallbackError;
+        }
+      }
       console.error('Error fetching exchange info:', error);
       throw error;
     }
@@ -54,6 +73,23 @@ export class BinanceAPI {
         nextFundingTime: item.nextFundingTime,
       }));
     } catch (error) {
+      // If backend proxy fails, try Binance directly as fallback
+      if (USE_BACKEND_PROXY) {
+        console.warn('⚠️ Backend proxy failed for funding rates, trying Binance directly...');
+        try {
+          const response = await axios.get(`${this.baseURL}/fapi/v1/premiumIndex`);
+          return response.data.map((item: any) => ({
+            symbol: item.symbol,
+            fundingRate: parseFloat(item.lastFundingRate),
+            fundingTime: item.time,
+            markPrice: parseFloat(item.markPrice),
+            nextFundingTime: item.nextFundingTime,
+          }));
+        } catch (fallbackError) {
+          console.error('❌ Binance direct fetch also failed:', fallbackError);
+          throw fallbackError;
+        }
+      }
       console.error('Error fetching funding rates:', error);
       throw error;
     }
@@ -139,6 +175,30 @@ export class BinanceAPI {
         trades: parseInt(item.count),
       }));
     } catch (error) {
+      // If backend proxy fails, try Binance directly as fallback
+      if (USE_BACKEND_PROXY) {
+        console.warn('⚠️ Backend proxy failed for 24hr ticker, trying Binance directly...');
+        try {
+          const params = symbol ? { symbol } : {};
+          const response = await axios.get(`${this.baseURL}/fapi/v1/ticker/24hr`, { params });
+          const data = Array.isArray(response.data) ? response.data : [response.data];
+
+          return data.map((item: any) => ({
+            symbol: item.symbol,
+            price: parseFloat(item.lastPrice),
+            priceChange: parseFloat(item.priceChange),
+            priceChangePercent: parseFloat(item.priceChangePercent),
+            volume: parseFloat(item.volume),
+            quoteVolume: parseFloat(item.quoteVolume),
+            high: parseFloat(item.highPrice),
+            low: parseFloat(item.lowPrice),
+            trades: parseInt(item.count),
+          }));
+        } catch (fallbackError) {
+          console.error('❌ Binance direct fetch also failed:', fallbackError);
+          throw fallbackError;
+        }
+      }
       console.error('Error fetching 24hr ticker:', error);
       throw error;
     }
