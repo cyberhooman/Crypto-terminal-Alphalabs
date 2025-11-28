@@ -1,4 +1,5 @@
-// Advanced confluence pattern detector for high-probability setups
+// High-Quality Confluence Pattern Detector
+// Designed for fewer, higher win-rate signals
 import type { MarketData } from '../types';
 
 export enum AlertSeverity {
@@ -30,285 +31,356 @@ export interface ConfluenceAlert {
   data: {
     fundingRate: number;
     fundingAPR: number;
-    oiChange: number;
-    cvdTrend: 'UP' | 'DOWN' | 'NEUTRAL';
+    fundingZScore: number; // How extreme vs historical average
+    oiChange8hr: number;
+    vdelta1hr: number;
     priceChange: number;
+    volume24h: number;
   };
 }
 
+interface TimeSeriesData {
+  timestamp: number;
+  oi: number;
+  cvd: number;
+  price: number;
+  fundingRate: number;
+  volume: number;
+}
+
 export class ConfluenceDetector {
-  private previousData: Map<string, MarketData> = new Map();
-  private oiHistory: Map<string, number[]> = new Map();
-  private cvdHistory: Map<string, number[]> = new Map();
-  private priceHistory: Map<string, number[]> = new Map();
-  private readonly historyLimit = 20; // Keep last 20 data points
+  private timeSeries: Map<string, TimeSeriesData[]> = new Map();
+  private fundingRateStats: Map<string, { mean: number; stdDev: number }> = new Map();
+  private lastAlertTime: Map<string, number> = new Map();
+  private readonly ALERT_COOLDOWN = 2 * 60 * 60 * 1000; // 2 hours between alerts per symbol
+
+  // Time windows (in milliseconds)
+  private readonly ONE_HOUR = 60 * 60 * 1000;
+  private readonly EIGHT_HOURS = 8 * 60 * 60 * 1000;
+  private readonly TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+  private readonly MAX_HISTORY = 48 * 60 * 60 * 1000; // Keep 48 hours of data
 
   // Process market data and detect confluence patterns
   detectPatterns(currentData: MarketData[]): ConfluenceAlert[] {
     const alerts: ConfluenceAlert[] = [];
+    const now = Date.now();
 
-    for (const data of currentData) {
-      // Update histories
-      this.updateHistories(data);
+    // Filter for high-liquidity coins only (top volume)
+    const highLiquidityCoins = currentData
+      .filter(d => d.quoteVolume > 10_000_000) // Min $10M 24h volume
+      .sort((a, b) => b.quoteVolume - a.quoteVolume)
+      .slice(0, 100); // Top 100 by volume
 
-      // Only analyze if we have enough history
-      if (!this.hasEnoughHistory(data.symbol)) {
-        this.previousData.set(data.symbol, data);
+    for (const data of highLiquidityCoins) {
+      // Update time series
+      this.updateTimeSeries(data, now);
+
+      // Update funding rate statistics
+      this.updateFundingStats(data.symbol);
+
+      // Check if we have enough historical data
+      if (!this.hasEnoughHistory(data.symbol, now)) {
         continue;
       }
 
-      // Detect each pattern type
-      const shortSqueezeAlert = this.detectShortSqueeze(data);
-      if (shortSqueezeAlert) alerts.push(shortSqueezeAlert);
-
-      const longFlushAlert = this.detectLongFlush(data);
-      if (longFlushAlert) alerts.push(longFlushAlert);
-
-      const capitulationAlert = this.detectCapitulation(data);
-      if (capitulationAlert) alerts.push(capitulationAlert);
-
-      const divergenceAlert = this.detectDivergence(data);
-      if (divergenceAlert) alerts.push(divergenceAlert);
-
-      // Store current data for next iteration
-      this.previousData.set(data.symbol, data);
-    }
-
-    // Sort by severity and confluence score
-    return alerts.sort((a, b) => {
-      const severityOrder = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
-      if (severityOrder[a.severity] !== severityOrder[b.severity]) {
-        return severityOrder[b.severity] - severityOrder[a.severity];
+      // Check cooldown period
+      const lastAlert = this.lastAlertTime.get(data.symbol) || 0;
+      if (now - lastAlert < this.ALERT_COOLDOWN) {
+        continue;
       }
-      return b.confluenceScore - a.confluenceScore;
-    });
-  }
 
-  // Pattern 1: Short Squeeze Setup
-  // - Funding deeply negative (shorts overcrowded)
-  // - OI rising (new positions building)
-  // - CVD trending up or diverging bullish
-  private detectShortSqueeze(data: MarketData): ConfluenceAlert | null {
-    const signals: string[] = [];
-    let confluenceScore = 0;
+      // Detect patterns (stricter criteria)
+      const shortSqueezeAlert = this.detectShortSqueeze(data, now);
+      if (shortSqueezeAlert) {
+        alerts.push(shortSqueezeAlert);
+        this.lastAlertTime.set(data.symbol, now);
+        continue; // Only one alert per symbol per cycle
+      }
 
-    const fundingAPR = data.fundingRate * 3 * 365 * 100; // Annualized %
-    const oiChange = this.calculateOIChange(data.symbol);
-    const cvdTrend = this.calculateCVDTrend(data.symbol);
+      const longFlushAlert = this.detectLongFlush(data, now);
+      if (longFlushAlert) {
+        alerts.push(longFlushAlert);
+        this.lastAlertTime.set(data.symbol, now);
+        continue;
+      }
 
-    // Check: Funding deeply negative
-    if (data.fundingRate < -0.0003) {
-      signals.push(`⚠️ Deeply negative funding: ${(fundingAPR).toFixed(1)}% APR`);
-      confluenceScore += 30;
+      const capitulationAlert = this.detectCapitulation(data, now);
+      if (capitulationAlert) {
+        alerts.push(capitulationAlert);
+        this.lastAlertTime.set(data.symbol, now);
+        continue;
+      }
 
-      if (data.fundingRate < -0.0005) {
-        signals.push(`🔥 EXTREME negative funding: Shorts very crowded`);
-        confluenceScore += 20;
+      const divergenceAlert = this.detectDivergence(data, now);
+      if (divergenceAlert) {
+        alerts.push(divergenceAlert);
+        this.lastAlertTime.set(data.symbol, now);
       }
     }
 
-    // Check: OI rising
-    if (oiChange > 5) {
-      signals.push(`📈 OI rising ${oiChange.toFixed(1)}% - New positions building`);
-      confluenceScore += 25;
-    }
+    // Cleanup old data
+    this.cleanupOldData(now);
 
-    // Check: CVD trending up (bullish)
-    if (cvdTrend === 'UP') {
-      signals.push(`💪 CVD trending up - Buyers accumulating`);
-      confluenceScore += 25;
-    }
-
-    // Check: Price declining while CVD rising (bullish divergence)
-    const priceChange = this.calculatePriceChange(data.symbol);
-    if (priceChange < -2 && cvdTrend === 'UP') {
-      signals.push(`🎯 BULLISH DIVERGENCE: Price down ${priceChange.toFixed(1)}% but CVD rising`);
-      confluenceScore += 30;
-    }
-
-    // Must have at least 2 signals and score > 50
-    if (signals.length >= 2 && confluenceScore >= 50) {
-      return {
-        id: `${data.symbol}-SHORT-SQUEEZE-${Date.now()}`,
-        symbol: data.symbol,
-        setupType: SetupType.SHORT_SQUEEZE,
-        severity: confluenceScore >= 80 ? AlertSeverity.CRITICAL :
-                  confluenceScore >= 65 ? AlertSeverity.HIGH : AlertSeverity.MEDIUM,
-        title: `🚀 SHORT SQUEEZE SETUP - ${data.symbol}`,
-        description: 'High probability short squeeze forming. Shorts overcrowded, OI building, buyers stepping in.',
-        signals,
-        confluenceScore,
-        timestamp: Date.now(),
-        data: {
-          fundingRate: data.fundingRate,
-          fundingAPR,
-          oiChange,
-          cvdTrend,
-          priceChange,
-        },
-      };
-    }
-
-    return null;
+    // Sort by confluence score
+    return alerts.sort((a, b) => b.confluenceScore - a.confluenceScore);
   }
 
-  // Pattern 2: Long Flush Setup
-  // - Funding extremely positive (longs overcrowded)
-  // - OI at local highs (max exposure)
-  // - CVD diverging bearish (price up, CVD flat/down)
-  private detectLongFlush(data: MarketData): ConfluenceAlert | null {
+  // Pattern 1: Short Squeeze Setup (STRICT)
+  // Requires: Extreme negative funding + OI surge + Strong CVD accumulation
+  private detectShortSqueeze(data: MarketData, now: number): ConfluenceAlert | null {
     const signals: string[] = [];
     let confluenceScore = 0;
 
     const fundingAPR = data.fundingRate * 3 * 365 * 100;
-    const oiChange = this.calculateOIChange(data.symbol);
-    const cvdTrend = this.calculateCVDTrend(data.symbol);
-    const oiAtHighs = this.isOIAtLocalHigh(data.symbol);
+    const fundingZScore = this.calculateFundingZScore(data.symbol, data.fundingRate);
+    const oiChange8hr = this.calculateOIChange(data.symbol, now, this.EIGHT_HOURS);
+    const vdelta1hr = this.calculateVDelta(data.symbol, now, this.ONE_HOUR);
+    const priceChange = this.calculatePriceChange(data.symbol, now, this.ONE_HOUR);
 
-    // Check: Funding extremely positive
-    if (data.fundingRate > 0.0003) {
-      signals.push(`⚠️ High positive funding: ${fundingAPR.toFixed(1)}% APR`);
-      confluenceScore += 30;
-
-      if (data.fundingRate > 0.0005) {
-        signals.push(`🔥 EXTREME positive funding: Longs very crowded`);
-        confluenceScore += 20;
-      }
-    }
-
-    // Check: OI at local highs
-    if (oiAtHighs) {
-      signals.push(`📊 OI at local highs - Maximum exposure reached`);
-      confluenceScore += 30;
-    }
-
-    // Check: CVD diverging bearish
-    const priceChange = this.calculatePriceChange(data.symbol);
-    if (priceChange > 2 && (cvdTrend === 'DOWN' || cvdTrend === 'NEUTRAL')) {
-      signals.push(`🎯 BEARISH DIVERGENCE: Price up ${priceChange.toFixed(1)}% but CVD ${cvdTrend.toLowerCase()}`);
-      confluenceScore += 35;
-    }
-
-    // Check: CVD declining
-    if (cvdTrend === 'DOWN') {
-      signals.push(`📉 CVD trending down - Sellers dominating`);
-      confluenceScore += 20;
-    }
-
-    // Must have at least 2 signals and score > 50
-    if (signals.length >= 2 && confluenceScore >= 50) {
-      return {
-        id: `${data.symbol}-LONG-FLUSH-${Date.now()}`,
-        symbol: data.symbol,
-        setupType: SetupType.LONG_FLUSH,
-        severity: confluenceScore >= 80 ? AlertSeverity.CRITICAL :
-                  confluenceScore >= 65 ? AlertSeverity.HIGH : AlertSeverity.MEDIUM,
-        title: `⚠️ LONG FLUSH SETUP - ${data.symbol}`,
-        description: 'High probability long liquidation. Longs overcrowded, OI maxed, sellers taking control.',
-        signals,
-        confluenceScore,
-        timestamp: Date.now(),
-        data: {
-          fundingRate: data.fundingRate,
-          fundingAPR,
-          oiChange,
-          cvdTrend,
-          priceChange,
-        },
-      };
-    }
-
-    return null;
-  }
-
-  // Pattern 3: Capitulation/Reversal Setup
-  // - OI dropping sharply (liquidations)
-  // - Funding resetting toward neutral
-  // - CVD showing absorption (falling price, rising CVD)
-  private detectCapitulation(data: MarketData): ConfluenceAlert | null {
-    const signals: string[] = [];
-    let confluenceScore = 0;
-
-    const fundingAPR = data.fundingRate * 3 * 365 * 100;
-    const oiChange = this.calculateOIChange(data.symbol);
-    const cvdTrend = this.calculateCVDTrend(data.symbol);
-    const priceChange = this.calculatePriceChange(data.symbol);
-    const fundingNormalizing = this.isFundingNormalizing(data.symbol);
-
-    // Check: OI dropping sharply (liquidations)
-    if (oiChange < -8) {
-      signals.push(`🔻 OI dropping ${Math.abs(oiChange).toFixed(1)}% - Mass liquidations!`);
+    // Signal 1: Funding rate extremely negative (dynamic threshold)
+    if (fundingZScore < -2.0) { // More than 2 std devs below mean
+      signals.push(`🔥 Extreme negative funding: ${fundingAPR.toFixed(1)}% APR (${fundingZScore.toFixed(1)}σ)`);
       confluenceScore += 35;
 
-      if (oiChange < -15) {
-        signals.push(`💥 EXTREME liquidations - Cascade event`);
+      if (fundingZScore < -3.0) {
+        signals.push(`💥 UNPRECEDENTED shorts crowding (${fundingZScore.toFixed(1)}σ below normal)`);
         confluenceScore += 25;
       }
+    } else {
+      return null; // Must have extreme funding
     }
 
-    // Check: Funding normalizing
-    if (fundingNormalizing) {
-      signals.push(`⚖️ Funding resetting to neutral - Overcrowding clearing`);
+    // Signal 2: Open Interest surging (new shorts piling in)
+    if (oiChange8hr > 10) {
+      signals.push(`📈 OI +${oiChange8hr.toFixed(1)}% in 8hr - New shorts entering`);
+      confluenceScore += 30;
+
+      if (oiChange8hr > 20) {
+        signals.push(`⚡ MASSIVE OI surge - Short FOMO accelerating`);
+        confluenceScore += 20;
+      }
+    }
+
+    // Signal 3: 1hr VDelta strongly positive (hidden accumulation)
+    if (vdelta1hr > 0) {
+      const vdeltaPercent = (vdelta1hr / data.volume) * 100;
+      if (vdeltaPercent > 5) {
+        signals.push(`💪 Strong buying: +${vdeltaPercent.toFixed(1)}% buy pressure (1hr VDelta)`);
+        confluenceScore += 30;
+
+        if (vdeltaPercent > 15) {
+          signals.push(`🚀 EXTREME accumulation - Whales absorbing supply`);
+          confluenceScore += 25;
+        }
+      }
+    }
+
+    // Signal 4: Bullish divergence (price down, accumulation up)
+    if (priceChange < -2 && vdelta1hr > 0) {
+      signals.push(`🎯 BULLISH DIVERGENCE: Price -${Math.abs(priceChange).toFixed(1)}% but strong buying`);
+      confluenceScore += 35;
+    }
+
+    // STRICT CRITERIA: Need 3+ signals AND score >= 80 for CRITICAL or >= 65 for HIGH
+    if (signals.length >= 3 && confluenceScore >= 65) {
+      return {
+        id: `${data.symbol}-SHORT-SQUEEZE-${now}`,
+        symbol: data.symbol,
+        setupType: SetupType.SHORT_SQUEEZE,
+        severity: confluenceScore >= 80 ? AlertSeverity.CRITICAL : AlertSeverity.HIGH,
+        title: `🚀 SHORT SQUEEZE SETUP - ${data.symbol}`,
+        description: 'Extreme short crowding + OI surge + hidden accumulation. High probability squeeze.',
+        signals,
+        confluenceScore,
+        timestamp: now,
+        data: {
+          fundingRate: data.fundingRate,
+          fundingAPR,
+          fundingZScore,
+          oiChange8hr,
+          vdelta1hr,
+          priceChange,
+          volume24h: data.quoteVolume,
+        },
+      };
+    }
+
+    return null;
+  }
+
+  // Pattern 2: Long Flush Setup (STRICT)
+  // Requires: Extreme positive funding + OI at peak + Strong selling pressure
+  private detectLongFlush(data: MarketData, now: number): ConfluenceAlert | null {
+    const signals: string[] = [];
+    let confluenceScore = 0;
+
+    const fundingAPR = data.fundingRate * 3 * 365 * 100;
+    const fundingZScore = this.calculateFundingZScore(data.symbol, data.fundingRate);
+    const oiChange8hr = this.calculateOIChange(data.symbol, now, this.EIGHT_HOURS);
+    const vdelta1hr = this.calculateVDelta(data.symbol, now, this.ONE_HOUR);
+    const priceChange = this.calculatePriceChange(data.symbol, now, this.ONE_HOUR);
+    const oiAtPeak = this.isOIAtPeak(data.symbol, now);
+
+    // Signal 1: Funding rate extremely positive (dynamic threshold)
+    if (fundingZScore > 2.0) { // More than 2 std devs above mean
+      signals.push(`🔥 Extreme positive funding: ${fundingAPR.toFixed(1)}% APR (${fundingZScore.toFixed(1)}σ)`);
+      confluenceScore += 35;
+
+      if (fundingZScore > 3.0) {
+        signals.push(`💥 UNPRECEDENTED longs crowding (${fundingZScore.toFixed(1)}σ above normal)`);
+        confluenceScore += 25;
+      }
+    } else {
+      return null; // Must have extreme funding
+    }
+
+    // Signal 2: OI at local peak (maximum exposure)
+    if (oiAtPeak) {
+      signals.push(`📊 OI at 24hr peak - Maximum long exposure reached`);
+      confluenceScore += 30;
+    }
+
+    // Signal 3: 1hr VDelta strongly negative (distribution)
+    if (vdelta1hr < 0) {
+      const vdeltaPercent = (Math.abs(vdelta1hr) / data.volume) * 100;
+      if (vdeltaPercent > 5) {
+        signals.push(`📉 Heavy selling: -${vdeltaPercent.toFixed(1)}% sell pressure (1hr VDelta)`);
+        confluenceScore += 30;
+
+        if (vdeltaPercent > 15) {
+          signals.push(`⚡ EXTREME distribution - Whales dumping`);
+          confluenceScore += 25;
+        }
+      }
+    }
+
+    // Signal 4: Bearish divergence (price up, distribution)
+    if (priceChange > 2 && vdelta1hr < 0) {
+      signals.push(`🎯 BEARISH DIVERGENCE: Price +${priceChange.toFixed(1)}% but heavy selling`);
+      confluenceScore += 35;
+    }
+
+    // STRICT CRITERIA: Need 3+ signals AND score >= 65
+    if (signals.length >= 3 && confluenceScore >= 65) {
+      return {
+        id: `${data.symbol}-LONG-FLUSH-${now}`,
+        symbol: data.symbol,
+        setupType: SetupType.LONG_FLUSH,
+        severity: confluenceScore >= 80 ? AlertSeverity.CRITICAL : AlertSeverity.HIGH,
+        title: `⚠️ LONG FLUSH SETUP - ${data.symbol}`,
+        description: 'Extreme long crowding + OI maxed + distribution. High probability liquidation cascade.',
+        signals,
+        confluenceScore,
+        timestamp: now,
+        data: {
+          fundingRate: data.fundingRate,
+          fundingAPR,
+          fundingZScore,
+          oiChange8hr,
+          vdelta1hr,
+          priceChange,
+          volume24h: data.quoteVolume,
+        },
+      };
+    }
+
+    return null;
+  }
+
+  // Pattern 3: Capitulation/Reversal (STRICT)
+  // Requires: Massive OI drop + Funding normalization + Absorption
+  private detectCapitulation(data: MarketData, now: number): ConfluenceAlert | null {
+    const signals: string[] = [];
+    let confluenceScore = 0;
+
+    const fundingAPR = data.fundingRate * 3 * 365 * 100;
+    const fundingZScore = this.calculateFundingZScore(data.symbol, data.fundingRate);
+    const oiChange8hr = this.calculateOIChange(data.symbol, now, this.EIGHT_HOURS);
+    const vdelta1hr = this.calculateVDelta(data.symbol, now, this.ONE_HOUR);
+    const priceChange = this.calculatePriceChange(data.symbol, now, this.EIGHT_HOURS);
+
+    // Signal 1: OI collapsing (liquidation cascade)
+    if (oiChange8hr < -15) {
+      signals.push(`💥 OI -${Math.abs(oiChange8hr).toFixed(1)}% in 8hr - MASS LIQUIDATIONS`);
+      confluenceScore += 40;
+
+      if (oiChange8hr < -25) {
+        signals.push(`🔻 EXTREME cascade event - Margin calls spreading`);
+        confluenceScore += 30;
+      }
+    } else {
+      return null; // Must have massive OI drop
+    }
+
+    // Signal 2: Funding normalizing
+    if (Math.abs(fundingZScore) < 0.5) {
+      signals.push(`⚖️ Funding normalizing (${fundingZScore.toFixed(2)}σ) - Overcrowding cleared`);
       confluenceScore += 25;
     }
 
-    // Determine if bottom or top capitulation
-    const isBottomCapitulation = priceChange < -5;
-    const isTopCapitulation = priceChange > 5;
+    // Bottom capitulation
+    if (priceChange < -8) {
+      const vdeltaPercent = (vdelta1hr / data.volume) * 100;
 
-    if (isBottomCapitulation) {
-      // Bottom capitulation: Price falling, CVD rising (absorption)
-      if (cvdTrend === 'UP') {
-        signals.push(`🎯 ABSORPTION: Price down ${Math.abs(priceChange).toFixed(1)}% but CVD rising - Bottom forming`);
-        confluenceScore += 40;
+      // Signal 3: Absorption (price crashes, buying emerges)
+      if (vdelta1hr > 0 && vdeltaPercent > 3) {
+        signals.push(`🎯 ABSORPTION: Price -${Math.abs(priceChange).toFixed(1)}% but +${vdeltaPercent.toFixed(1)}% buying (1hr)`);
+        confluenceScore += 45;
       }
 
-      if (signals.length >= 2 && confluenceScore >= 60) {
+      if (signals.length >= 2 && confluenceScore >= 75) {
         return {
-          id: `${data.symbol}-CAPITULATION-BOTTOM-${Date.now()}`,
+          id: `${data.symbol}-CAPITULATION-BOTTOM-${now}`,
           symbol: data.symbol,
           setupType: SetupType.CAPITULATION_BOTTOM,
           severity: AlertSeverity.CRITICAL,
           title: `🟢 CAPITULATION BOTTOM - ${data.symbol}`,
-          description: 'Potential bottom forming. Liquidations clearing, funding normalizing, buyers absorbing.',
+          description: 'Mass liquidations complete. Funding reset. Strong hands absorbing. Reversal likely.',
           signals,
           confluenceScore,
-          timestamp: Date.now(),
+          timestamp: now,
           data: {
             fundingRate: data.fundingRate,
             fundingAPR,
-            oiChange,
-            cvdTrend,
+            fundingZScore,
+            oiChange8hr,
+            vdelta1hr,
             priceChange,
+            volume24h: data.quoteVolume,
           },
         };
       }
     }
 
-    if (isTopCapitulation) {
-      // Top capitulation: Price rising, CVD falling (distribution)
-      if (cvdTrend === 'DOWN') {
-        signals.push(`🎯 DISTRIBUTION: Price up ${priceChange.toFixed(1)}% but CVD falling - Top forming`);
-        confluenceScore += 40;
+    // Top capitulation
+    if (priceChange > 8) {
+      const vdeltaPercent = (Math.abs(vdelta1hr) / data.volume) * 100;
+
+      // Signal 3: Distribution (price pumps, selling emerges)
+      if (vdelta1hr < 0 && vdeltaPercent > 3) {
+        signals.push(`🎯 DISTRIBUTION: Price +${priceChange.toFixed(1)}% but -${vdeltaPercent.toFixed(1)}% selling (1hr)`);
+        confluenceScore += 45;
       }
 
-      if (signals.length >= 2 && confluenceScore >= 60) {
+      if (signals.length >= 2 && confluenceScore >= 75) {
         return {
-          id: `${data.symbol}-CAPITULATION-TOP-${Date.now()}`,
+          id: `${data.symbol}-CAPITULATION-TOP-${now}`,
           symbol: data.symbol,
           setupType: SetupType.CAPITULATION_TOP,
           severity: AlertSeverity.CRITICAL,
           title: `🔴 CAPITULATION TOP - ${data.symbol}`,
-          description: 'Potential top forming. Liquidations clearing, funding normalizing, sellers distributing.',
+          description: 'Mass liquidations complete. Funding reset. Smart money distributing. Reversal likely.',
           signals,
           confluenceScore,
-          timestamp: Date.now(),
+          timestamp: now,
           data: {
             fundingRate: data.fundingRate,
             fundingAPR,
-            oiChange,
-            cvdTrend,
+            fundingZScore,
+            oiChange8hr,
+            vdelta1hr,
             priceChange,
+            volume24h: data.quoteVolume,
           },
         };
       }
@@ -317,57 +389,64 @@ export class ConfluenceDetector {
     return null;
   }
 
-  // Pattern 4: Divergence Detection
-  private detectDivergence(data: MarketData): ConfluenceAlert | null {
-    const priceChange = this.calculatePriceChange(data.symbol);
-    const cvdTrend = this.calculateCVDTrend(data.symbol);
+  // Pattern 4: Strong Divergence (STRICT)
+  private detectDivergence(data: MarketData, now: number): ConfluenceAlert | null {
+    const priceChange = this.calculatePriceChange(data.symbol, now, this.EIGHT_HOURS);
+    const vdelta1hr = this.calculateVDelta(data.symbol, now, this.ONE_HOUR);
+    const vdeltaPercent = (Math.abs(vdelta1hr) / data.volume) * 100;
 
-    // Bullish divergence: Price down, CVD up
-    if (priceChange < -3 && cvdTrend === 'UP') {
+    // Bullish divergence (STRICT: Large price drop + Strong accumulation)
+    if (priceChange < -5 && vdelta1hr > 0 && vdeltaPercent > 8) {
       return {
-        id: `${data.symbol}-BULL-DIV-${Date.now()}`,
+        id: `${data.symbol}-BULL-DIV-${now}`,
         symbol: data.symbol,
         setupType: SetupType.BULLISH_DIVERGENCE,
         severity: AlertSeverity.HIGH,
-        title: `📈 BULLISH DIVERGENCE - ${data.symbol}`,
-        description: `Price down ${Math.abs(priceChange).toFixed(1)}% but CVD rising - Hidden buying`,
+        title: `📈 STRONG BULLISH DIVERGENCE - ${data.symbol}`,
+        description: `Price crashed ${Math.abs(priceChange).toFixed(1)}% but heavy accumulation (+${vdeltaPercent.toFixed(1)}%). Smart money buying.`,
         signals: [
-          `Price declining: ${priceChange.toFixed(1)}%`,
-          `CVD trending up - Buyers accumulating`,
+          `Price down ${Math.abs(priceChange).toFixed(1)}% (8hr)`,
+          `Strong buying: +${vdeltaPercent.toFixed(1)}% buy pressure (1hr)`,
+          `Hidden accumulation by smart money`,
         ],
-        confluenceScore: 70,
-        timestamp: Date.now(),
+        confluenceScore: 75,
+        timestamp: now,
         data: {
           fundingRate: data.fundingRate,
           fundingAPR: data.fundingRate * 3 * 365 * 100,
-          oiChange: this.calculateOIChange(data.symbol),
-          cvdTrend,
+          fundingZScore: this.calculateFundingZScore(data.symbol, data.fundingRate),
+          oiChange8hr: this.calculateOIChange(data.symbol, now, this.EIGHT_HOURS),
+          vdelta1hr,
           priceChange,
+          volume24h: data.quoteVolume,
         },
       };
     }
 
-    // Bearish divergence: Price up, CVD down
-    if (priceChange > 3 && cvdTrend === 'DOWN') {
+    // Bearish divergence (STRICT: Large price pump + Strong distribution)
+    if (priceChange > 5 && vdelta1hr < 0 && vdeltaPercent > 8) {
       return {
-        id: `${data.symbol}-BEAR-DIV-${Date.now()}`,
+        id: `${data.symbol}-BEAR-DIV-${now}`,
         symbol: data.symbol,
         setupType: SetupType.BEARISH_DIVERGENCE,
         severity: AlertSeverity.HIGH,
-        title: `📉 BEARISH DIVERGENCE - ${data.symbol}`,
-        description: `Price up ${priceChange.toFixed(1)}% but CVD falling - Hidden selling`,
+        title: `📉 STRONG BEARISH DIVERGENCE - ${data.symbol}`,
+        description: `Price pumped ${priceChange.toFixed(1)}% but heavy distribution (-${vdeltaPercent.toFixed(1)}%). Smart money selling.`,
         signals: [
-          `Price rising: ${priceChange.toFixed(1)}%`,
-          `CVD trending down - Sellers distributing`,
+          `Price up ${priceChange.toFixed(1)}% (8hr)`,
+          `Heavy selling: -${vdeltaPercent.toFixed(1)}% sell pressure (1hr)`,
+          `Hidden distribution by smart money`,
         ],
-        confluenceScore: 70,
-        timestamp: Date.now(),
+        confluenceScore: 75,
+        timestamp: now,
         data: {
           fundingRate: data.fundingRate,
           fundingAPR: data.fundingRate * 3 * 365 * 100,
-          oiChange: this.calculateOIChange(data.symbol),
-          cvdTrend,
+          fundingZScore: this.calculateFundingZScore(data.symbol, data.fundingRate),
+          oiChange8hr: this.calculateOIChange(data.symbol, now, this.EIGHT_HOURS),
+          vdelta1hr,
           priceChange,
+          volume24h: data.quoteVolume,
         },
       };
     }
@@ -375,114 +454,138 @@ export class ConfluenceDetector {
     return null;
   }
 
-  // Helper methods
-  private updateHistories(data: MarketData): void {
-    // Update OI history
-    if (!this.oiHistory.has(data.symbol)) {
-      this.oiHistory.set(data.symbol, []);
+  // Helper: Update time series
+  private updateTimeSeries(data: MarketData, now: number): void {
+    if (!this.timeSeries.has(data.symbol)) {
+      this.timeSeries.set(data.symbol, []);
     }
-    const oiHist = this.oiHistory.get(data.symbol)!;
-    oiHist.push(data.openInterestValue);
-    if (oiHist.length > this.historyLimit) oiHist.shift();
 
-    // Update CVD history
-    if (!this.cvdHistory.has(data.symbol)) {
-      this.cvdHistory.set(data.symbol, []);
-    }
-    const cvdHist = this.cvdHistory.get(data.symbol)!;
-    cvdHist.push(data.cvd);
-    if (cvdHist.length > this.historyLimit) cvdHist.shift();
+    const series = this.timeSeries.get(data.symbol)!;
+    series.push({
+      timestamp: now,
+      oi: data.openInterestValue,
+      cvd: data.cvd,
+      price: data.price,
+      fundingRate: data.fundingRate,
+      volume: data.volume,
+    });
 
-    // Update price history
-    if (!this.priceHistory.has(data.symbol)) {
-      this.priceHistory.set(data.symbol, []);
-    }
-    const priceHist = this.priceHistory.get(data.symbol)!;
-    priceHist.push(data.price);
-    if (priceHist.length > this.historyLimit) priceHist.shift();
-  }
-
-  private hasEnoughHistory(symbol: string): boolean {
-    return (
-      (this.oiHistory.get(symbol)?.length || 0) >= 5 &&
-      (this.cvdHistory.get(symbol)?.length || 0) >= 5 &&
-      (this.priceHistory.get(symbol)?.length || 0) >= 5
+    // Keep only last 48 hours
+    const cutoff = now - this.MAX_HISTORY;
+    this.timeSeries.set(
+      data.symbol,
+      series.filter(d => d.timestamp > cutoff)
     );
   }
 
-  private calculateOIChange(symbol: string): number {
-    const history = this.oiHistory.get(symbol);
-    if (!history || history.length < 5) return 0;
+  // Helper: Check if we have enough history
+  private hasEnoughHistory(symbol: string, now: number): boolean {
+    const series = this.timeSeries.get(symbol);
+    if (!series || series.length < 10) return false;
 
-    const current = history[history.length - 1];
-    const previous = history[history.length - 6] || history[0];
-
-    return ((current - previous) / previous) * 100;
+    // Check we have data spanning at least 8 hours
+    const oldest = series[0].timestamp;
+    return (now - oldest) >= this.EIGHT_HOURS;
   }
 
-  private calculateCVDTrend(symbol: string): 'UP' | 'DOWN' | 'NEUTRAL' {
-    const history = this.cvdHistory.get(symbol);
-    if (!history || history.length < 5) return 'NEUTRAL';
+  // Helper: Calculate 8hr OI change
+  private calculateOIChange(symbol: string, now: number, windowMs: number): number {
+    const series = this.timeSeries.get(symbol);
+    if (!series || series.length < 2) return 0;
 
-    const recent = history.slice(-5);
-    const slope = this.calculateSlope(recent);
+    const cutoff = now - windowMs;
+    const oldData = series.find(d => d.timestamp <= cutoff);
+    const currentData = series[series.length - 1];
 
-    if (slope > 0.1) return 'UP';
-    if (slope < -0.1) return 'DOWN';
-    return 'NEUTRAL';
+    if (!oldData) return 0;
+
+    return ((currentData.oi - oldData.oi) / oldData.oi) * 100;
   }
 
-  private calculatePriceChange(symbol: string): number {
-    const history = this.priceHistory.get(symbol);
-    if (!history || history.length < 5) return 0;
+  // Helper: Calculate 1hr Volume Delta
+  private calculateVDelta(symbol: string, now: number, windowMs: number): number {
+    const series = this.timeSeries.get(symbol);
+    if (!series || series.length < 2) return 0;
 
-    const current = history[history.length - 1];
-    const previous = history[history.length - 6] || history[0];
+    const cutoff = now - windowMs;
+    const oldData = series.find(d => d.timestamp <= cutoff);
+    const currentData = series[series.length - 1];
 
-    return ((current - previous) / previous) * 100;
+    if (!oldData) return 0;
+
+    return currentData.cvd - oldData.cvd;
   }
 
-  private isOIAtLocalHigh(symbol: string): boolean {
-    const history = this.oiHistory.get(symbol);
-    if (!history || history.length < 10) return false;
+  // Helper: Calculate price change
+  private calculatePriceChange(symbol: string, now: number, windowMs: number): number {
+    const series = this.timeSeries.get(symbol);
+    if (!series || series.length < 2) return 0;
 
-    const current = history[history.length - 1];
-    const max = Math.max(...history.slice(-10));
+    const cutoff = now - windowMs;
+    const oldData = series.find(d => d.timestamp <= cutoff);
+    const currentData = series[series.length - 1];
 
-    return current >= max * 0.98; // Within 2% of local high
+    if (!oldData) return 0;
+
+    return ((currentData.price - oldData.price) / oldData.price) * 100;
   }
 
-  private isFundingNormalizing(symbol: string): boolean {
-    const prev = this.previousData.get(symbol);
-    if (!prev) return false;
+  // Helper: Calculate funding rate Z-score (dynamic threshold)
+  private calculateFundingZScore(symbol: string, currentFunding: number): number {
+    const stats = this.fundingRateStats.get(symbol);
+    if (!stats) return 0;
 
-    const current = this.previousData.get(symbol);
-    if (!current) return false;
-
-    const prevAbs = Math.abs(prev.fundingRate);
-    const currentAbs = Math.abs(current.fundingRate);
-
-    return currentAbs < prevAbs && currentAbs < 0.0002;
+    return (currentFunding - stats.mean) / stats.stdDev;
   }
 
-  private calculateSlope(values: number[]): number {
-    if (values.length < 2) return 0;
+  // Helper: Update funding rate statistics
+  private updateFundingStats(symbol: string): void {
+    const series = this.timeSeries.get(symbol);
+    if (!series || series.length < 10) return;
 
-    const n = values.length;
-    const sumX = (n * (n - 1)) / 2;
-    const sumY = values.reduce((a, b) => a + b, 0);
-    const sumXY = values.reduce((sum, y, x) => sum + x * y, 0);
-    const sumX2 = values.reduce((sum, _, x) => sum + x * x, 0);
+    const fundingRates = series.map(d => d.fundingRate);
+    const mean = fundingRates.reduce((a, b) => a + b, 0) / fundingRates.length;
+    const variance = fundingRates.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / fundingRates.length;
+    const stdDev = Math.sqrt(variance);
 
-    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-    return slope;
+    this.fundingRateStats.set(symbol, { mean, stdDev: Math.max(stdDev, 0.0001) }); // Prevent div by 0
+  }
+
+  // Helper: Check if OI is at 24hr peak
+  private isOIAtPeak(symbol: string, now: number): boolean {
+    const series = this.timeSeries.get(symbol);
+    if (!series) return false;
+
+    const cutoff = now - this.TWENTY_FOUR_HOURS;
+    const last24h = series.filter(d => d.timestamp > cutoff);
+    if (last24h.length < 10) return false;
+
+    const currentOI = series[series.length - 1].oi;
+    const maxOI = Math.max(...last24h.map(d => d.oi));
+
+    return currentOI >= maxOI * 0.98; // Within 2% of 24hr peak
+  }
+
+  // Helper: Cleanup old data
+  private cleanupOldData(now: number): void {
+    const cutoff = now - this.MAX_HISTORY;
+
+    for (const [symbol, series] of this.timeSeries.entries()) {
+      const filtered = series.filter(d => d.timestamp > cutoff);
+      if (filtered.length === 0) {
+        this.timeSeries.delete(symbol);
+        this.fundingRateStats.delete(symbol);
+        this.lastAlertTime.delete(symbol);
+      } else {
+        this.timeSeries.set(symbol, filtered);
+      }
+    }
   }
 
   reset(): void {
-    this.previousData.clear();
-    this.oiHistory.clear();
-    this.cvdHistory.clear();
-    this.priceHistory.clear();
+    this.timeSeries.clear();
+    this.fundingRateStats.clear();
+    this.lastAlertTime.clear();
   }
 }
 
