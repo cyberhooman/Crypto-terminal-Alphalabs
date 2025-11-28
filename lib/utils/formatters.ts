@@ -1,6 +1,7 @@
 // Utility functions for formatting data
 
 export function formatNumber(value: number, decimals: number = 2): string {
+  if (value == null || isNaN(value)) return '—';
   if (Math.abs(value) >= 1e9) {
     return (value / 1e9).toFixed(decimals) + 'B';
   }
@@ -14,14 +15,17 @@ export function formatNumber(value: number, decimals: number = 2): string {
 }
 
 export function formatCurrency(value: number, decimals: number = 2): string {
+  if (value == null || isNaN(value)) return '—';
   return '$' + formatNumber(value, decimals);
 }
 
 export function formatPercentage(value: number, decimals: number = 4): string {
+  if (value == null || isNaN(value)) return '—';
   return (value * 100).toFixed(decimals) + '%';
 }
 
 export function formatPrice(value: number): string {
+  if (value == null || isNaN(value)) return '—';
   if (value >= 1000) return value.toFixed(2);
   if (value >= 1) return value.toFixed(4);
   if (value >= 0.01) return value.toFixed(6);
