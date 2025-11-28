@@ -111,21 +111,14 @@ export class MarketDataService {
   // Load secondary data (OI, CVD) in background
   private async loadSecondaryData(): Promise<void> {
     try {
-      console.log('Loading secondary data in background...');
+      console.log('Secondary data loading disabled (OI and CVD require direct Binance access)');
+      console.log('Data will show: Price, 24h change, Volume, and Funding Rate');
 
-      // Load OI for top 50 symbols (non-blocking)
-      const topSymbols = this.symbols.slice(0, 50);
+      // DISABLED: OI and CVD loading requires direct Binance API access
+      // which times out on Railway. The backend signal detector will
+      // handle this data for alerts instead.
 
-      // Don't await - let it load in background
-      this.updateOpenInterest(topSymbols).catch(err => {
-        console.warn('Failed to load OI data:', err.message);
-      });
-
-      // Initialize CVD for top 20 symbols (non-blocking)
-      const cvdSymbols = this.symbols.slice(0, 20);
-      this.initializeCVD(cvdSymbols).catch(err => {
-        console.warn('Failed to initialize CVD:', err.message);
-      });
+      // TODO: Add backend proxy endpoints for OI and trades if needed
     } catch (error) {
       console.warn('Error loading secondary data:', error);
     }
