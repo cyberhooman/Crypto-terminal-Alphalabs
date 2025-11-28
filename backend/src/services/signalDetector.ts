@@ -89,13 +89,13 @@ export class SignalDetectionService {
       // Fetch funding rates
       const fundingRes = await axios.get(`${BINANCE_API}/fapi/v1/premiumIndex`);
       const fundingRates = fundingRes.data;
-      const fundingMap = new Map(fundingRates.map((f: any) => [f.symbol, f]));
+      const fundingMap = new Map<string, any>(fundingRates.map((f: any) => [f.symbol, f]));
 
       // Combine data (filter USDT pairs only)
       const marketData: MarketData[] = tickers
         .filter((t: any) => t.symbol.endsWith('USDT'))
         .map((ticker: any) => {
-          const funding = fundingMap.get(ticker.symbol);
+          const funding = fundingMap.get(ticker.symbol) as any;
 
           return {
             symbol: ticker.symbol,
