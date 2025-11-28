@@ -130,6 +130,30 @@ export class BinanceAPI {
         timestamp: response.data.time || Date.now(),
       };
     } catch (error) {
+      // If backend proxy fails, try Binance directly as fallback
+      if (USE_BACKEND_PROXY) {
+        console.warn(`⚠️ Backend proxy failed for OI ${symbol}, trying Binance directly...`);
+        try {
+          const response = await axios.get(`${this.baseURL}/fapi/v1/openInterest`, {
+            params: { symbol }
+          });
+          return {
+            symbol: response.data.symbol,
+            openInterest: parseFloat(response.data.openInterest),
+            openInterestValue: 0,
+            timestamp: response.data.time || Date.now(),
+          };
+        } catch (fallbackError) {
+          // If both fail, return default values instead of throwing
+          console.warn(`⚠️ Both OI requests failed for ${symbol}, using defaults`);
+          return {
+            symbol,
+            openInterest: 0,
+            openInterestValue: 0,
+            timestamp: Date.now(),
+          };
+        }
+      }
       console.error('Error fetching open interest:', error);
       throw error;
     }
@@ -257,6 +281,28 @@ export class BinanceAPI {
         isBuyerMaker: trade.m,
       }));
     } catch (error) {
+      // If backend proxy fails, try Binance directly as fallback
+      if (USE_BACKEND_PROXY) {
+        console.warn(`⚠️ Backend proxy failed for aggTrades ${symbol}, trying Binance directly...`);
+        try {
+          const response = await axios.get(`${this.baseURL}/fapi/v1/aggTrades`, {
+            params: { symbol, limit }
+          });
+          return response.data.map((trade: any) => ({
+            aggTradeId: trade.a,
+            price: parseFloat(trade.p),
+            quantity: parseFloat(trade.q),
+            firstTradeId: trade.f,
+            lastTradeId: trade.l,
+            timestamp: trade.T,
+            isBuyerMaker: trade.m,
+          }));
+        } catch (fallbackError) {
+          // If both fail, return empty array instead of throwing
+          console.warn(`⚠️ Both aggTrades requests failed for ${symbol}, returning empty`);
+          return [];
+        }
+      }
       console.error('Error fetching agg trades:', error);
       throw error;
     }
