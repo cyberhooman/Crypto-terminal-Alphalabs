@@ -7,14 +7,17 @@ WORKDIR /app/backend
 # Copy backend package files
 COPY backend/package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install dependencies (use npm install since we don't have package-lock.json)
+RUN npm install --production
 
 # Copy backend source code
 COPY backend/ ./
 
-# Build TypeScript
-RUN npm run build
+# Build TypeScript (need to install dev dependencies for build)
+RUN npm install && npm run build
+
+# Remove dev dependencies after build
+RUN npm prune --production
 
 # Expose port
 EXPOSE 3001
