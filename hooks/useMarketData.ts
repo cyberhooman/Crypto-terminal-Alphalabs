@@ -3,7 +3,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useMarketStore } from '@/stores/useMarketStore';
-import { marketDataService } from '@/lib/services/marketData';
+import { hybridMarketDataService } from '@/lib/services/hybridMarketData';
 
 export function useMarketData() {
   const { marketData, isLoading, setLoading, setMarketData } = useMarketStore();
@@ -16,13 +16,13 @@ export function useMarketData() {
     const initializeData = async () => {
       try {
         setLoading(true);
-        console.log('🔄 Connecting to market data service...');
+        console.log('🔄 Connecting to hybrid market data service (CoinGlass + Binance)...');
 
-        await marketDataService.initialize();
-        console.log('✅ Market data service initialized');
+        await hybridMarketDataService.initialize();
+        console.log('✅ Hybrid market data service initialized');
 
         // Subscribe to updates
-        const unsubscribe = marketDataService.onUpdate((dataMap) => {
+        const unsubscribe = hybridMarketDataService.onUpdate((dataMap) => {
           // Convert Map to Array for store
           const dataArray = Array.from(dataMap.values());
           console.log(`📊 Received ${dataArray.length} market data items`);
@@ -30,7 +30,7 @@ export function useMarketData() {
         });
 
         // Initial data load
-        const initialData = marketDataService.getAllData();
+        const initialData = hybridMarketDataService.getAllData();
         console.log(`📈 Initial data loaded: ${initialData.length} items`);
 
         if (initialData.length > 0) {
@@ -41,7 +41,7 @@ export function useMarketData() {
           console.warn('⚠️ No initial data received, waiting for updates...');
           // Set loading to false anyway to show empty state
           setTimeout(() => {
-            const retryData = marketDataService.getAllData();
+            const retryData = hybridMarketDataService.getAllData();
             if (retryData.length > 0) {
               setMarketData(retryData);
               console.log(`✅ Data received after delay: ${retryData.length} items`);
@@ -64,7 +64,7 @@ export function useMarketData() {
 
     return () => {
       if (isInitialized.current) {
-        marketDataService.destroy();
+        hybridMarketDataService.destroy();
         isInitialized.current = false;
       }
     };
