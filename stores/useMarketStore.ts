@@ -333,6 +333,10 @@ export const useMarketStore = create<MarketStore>()(
       }),
       storage: {
         getItem: (name) => {
+          // Check if we're in a browser environment
+          if (typeof window === 'undefined') {
+            return null;
+          }
           try {
             const str = localStorage.getItem(name);
             return str ? JSON.parse(str) : null;
@@ -342,6 +346,10 @@ export const useMarketStore = create<MarketStore>()(
           }
         },
         setItem: (name, value) => {
+          // Check if we're in a browser environment
+          if (typeof window === 'undefined') {
+            return;
+          }
           try {
             localStorage.setItem(name, JSON.stringify(value));
           } catch (error) {
@@ -360,6 +368,10 @@ export const useMarketStore = create<MarketStore>()(
           }
         },
         removeItem: (name) => {
+          // Check if we're in a browser environment
+          if (typeof window === 'undefined') {
+            return;
+          }
           try {
             localStorage.removeItem(name);
           } catch (error) {
