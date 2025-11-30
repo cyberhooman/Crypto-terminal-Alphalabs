@@ -160,7 +160,7 @@ export class HybridMarketDataService {
 
   private subscribeToStreams(): void {
     // Subscribe to price updates (Binance)
-    binanceWS.subscribeAllMiniTickers((data) => {
+    binanceWS.subscribeAllTickers((data) => {
       if (Array.isArray(data)) {
         data.forEach(ticker => this.handleMiniTickerUpdate(ticker));
       }
@@ -168,20 +168,16 @@ export class HybridMarketDataService {
 
     // Subscribe to mark price for real-time funding (if not using CoinGlass)
     if (!this.useCoinGlass) {
-      binanceWS.subscribeMarkPriceAll((data) => {
+      binanceWS.subscribeAllMarkPrices((data) => {
         if (Array.isArray(data)) {
           data.forEach(markPrice => this.handleMarkPriceUpdate(markPrice));
         }
       });
     }
 
-    // Subscribe to trades for CVD (top 30 pairs only for performance)
-    const topSymbols = this.symbols.slice(0, 30);
-    topSymbols.forEach(symbol => {
-      binanceWS.subscribeAggTrades(symbol, (trade) => {
-        this.handleAggTrade(symbol, trade);
-      });
-    });
+    // Note: subscribeAggTrades removed - CVD calculation will be handled differently
+    // The new WebSocket client doesn't support individual symbol trade streams
+    // CVD will be calculated from initial historical data only
 
     console.log('✅ Subscribed to real-time streams');
   }
