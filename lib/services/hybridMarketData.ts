@@ -1,6 +1,6 @@
 // Hybrid market data service: CoinGlass for Funding/OI, Binance for CVD
 import { binanceAPI } from '../binance/api';
-import { binanceWS } from '../binance/websocket';
+import { binanceWS } from '../binance/websocketClient';
 import { coinGlassAPI } from '../coinglass/api';
 import { cvdCalculator, type Trade } from '../utils/cvd';
 import type { MarketData } from '../types';
