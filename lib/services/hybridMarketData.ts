@@ -205,15 +205,21 @@ export class HybridMarketDataService {
         this.marketData.set(ticker.symbol, marketData);
       }
 
-      // Initialize CVD for top 100 symbols by volume
+      console.log('✅ Initial market data loaded');
+      console.log('📊 Starting background data fetch (CVD)...');
+
+      // Initialize CVD for top 150 symbols by volume (async, non-blocking)
       const topSymbolsByVolume = tickers
         .filter((t: any) => this.symbols.includes(t.symbol))
         .sort((a: any, b: any) => b.quoteVolume - a.quoteVolume)
-        .slice(0, 100)
+        .slice(0, 150)
         .map((t: any) => t.symbol);
-      await this.initializeCVD(topSymbolsByVolume);
 
-      console.log('✅ Initial data loaded');
+      // Start CVD calculation in background
+      this.initializeCVD(topSymbolsByVolume).then(() => {
+        console.log('✅ CVD data ready');
+        this.notifyUpdate();
+      });
     } catch (error) {
       console.error('Error fetching initial data:', error);
       throw error;
@@ -294,10 +300,17 @@ export class HybridMarketDataService {
   }
 
   private async initializeCVD(symbols: string[]): Promise<void> {
-    console.log('🔄 Initializing CVD for top symbols...');
+    console.log(`🔄 Initializing CVD for ${symbols.length} symbols...`);
 
-    const promises = symbols.map(async (symbol) => {
-      try {
+    let completed = 0;
+    let failed = 0;
+
+    // Process in batches to avoid overwhelming API
+    const batchSize = 20;
+    for (let i = 0; i < symbols.length; i += batchSize) {
+      const batch = symbols.slice(i, i + batchSize);
+
+      const results = await Promise.allSettled(batch.map(async (symbol) => {
         const trades: any[] = await binanceAPI.getAggTrades(symbol, 1000);
         const historicalTrades: Trade[] = trades.map((t: any) => ({
           price: t.price,
@@ -315,58 +328,76 @@ export class HybridMarketDataService {
           data.sellVolume = cvdData.sellVolume;
           this.marketData.set(symbol, data);
         }
-      } catch (error) {
-        // Silently continue on error
-      }
-    });
+        return symbol;
+      }));
 
-    await Promise.all(promises);
-    console.log('✅ CVD initialized');
+      results.forEach(result => {
+        if (result.status === 'fulfilled') completed++;
+        else failed++;
+      });
+
+      // Notify UI of progress
+      if (i % 60 === 0) {
+        this.notifyUpdate();
+      }
+
+      // Small delay between batches
+      if (i + batchSize < symbols.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+
+    console.log(`✅ CVD initialized: ${completed} success, ${failed} failed`);
   }
 
   // Fetch OI from Binance for symbols not in oiMap
   private async fetchBinanceOI(oiMap: Map<string, any>, tickers: any[]): Promise<void> {
-    // Sort by volume and get top 100 symbols that don't have OI data
+    // Sort by volume and get top 200 symbols that don't have OI data
     const symbolsNeedingOI = tickers
       .filter((t: any) => this.symbols.includes(t.symbol) && !oiMap.has(t.symbol))
       .sort((a: any, b: any) => b.quoteVolume - a.quoteVolume)
-      .slice(0, 100)
+      .slice(0, 200)
       .map((t: any) => t.symbol);
 
     if (symbolsNeedingOI.length === 0) {
-      console.log('✅ All symbols have OI data from CoinGlass');
+      console.log('✅ All symbols have OI from CoinGlass');
       return;
     }
 
     console.log(`📡 Fetching OI for ${symbolsNeedingOI.length} symbols from Binance...`);
 
+    let successCount = 0;
+    let failCount = 0;
+
     // Batch fetch with rate limiting
-    const batchSize = 10;
+    const batchSize = 15;
     for (let i = 0; i < symbolsNeedingOI.length; i += batchSize) {
       const batch = symbolsNeedingOI.slice(i, i + batchSize);
 
-      await Promise.all(batch.map(async (symbol: string) => {
-        try {
-          const oi = await binanceAPI.getOpenInterest(symbol);
-          const ticker = tickers.find((t: any) => t.symbol === symbol);
-          const price = ticker?.price || 0;
+      const results = await Promise.allSettled(batch.map(async (symbol: string) => {
+        const oi = await binanceAPI.getOpenInterest(symbol);
+        const ticker = tickers.find((t: any) => t.symbol === symbol);
+        const price = ticker?.price || 0;
 
-          oiMap.set(symbol, {
-            openInterest: oi.openInterest,
-            openInterestValue: oi.openInterest * price,
-          });
-        } catch (e) {
-          // Skip symbols that fail
-        }
+        oiMap.set(symbol, {
+          openInterest: oi.openInterest,
+          openInterestValue: oi.openInterest * price,
+        });
+        return symbol;
       }));
+
+      results.forEach(result => {
+        if (result.status === 'fulfilled') successCount++;
+        else failCount++;
+      });
 
       // Small delay to avoid rate limiting
       if (i + batchSize < symbolsNeedingOI.length) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 50));
       }
     }
 
-    console.log(`✅ Binance OI: ${oiMap.size} total symbols with OI data`);
+    console.log(`✅ Binance OI: ${successCount} success, ${failCount} failed (total: ${oiMap.size})`);
   }
 
   private startPeriodicUpdates(): void {
