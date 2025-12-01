@@ -1,170 +1,110 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Bell, Settings, Activity, Zap, RefreshCw } from 'lucide-react';
+import { Bell, Settings, Activity } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useMarketStore } from '@/stores/useMarketStore';
 
-// Dynamically import heavy components to prevent SSR/build issues
 const ScreenerView = dynamic(() => import('@/components/screener/ScreenerView'), {
   ssr: false,
-  loading: () => <LoadingPlaceholder message="Loading Screener..." />
+  loading: () => <LoadingState />
 });
 
 const AlertsView = dynamic(() => import('@/components/alerts/AlertsView'), {
   ssr: false,
-  loading: () => <LoadingPlaceholder message="Loading Alerts..." />
+  loading: () => <LoadingState />
 });
 
-function LoadingPlaceholder({ message }: { message: string }) {
+function LoadingState() {
   return (
-    <div className="flex-1 flex items-center justify-center">
-      <div className="text-center">
-        <RefreshCw className="w-12 h-12 text-blue-500 animate-spin mx-auto mb-4" />
-        <p style={{ color: 'var(--text-secondary)' }}>{message}</p>
+    <div className="flex items-center justify-center h-full">
+      <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+        Loading...
       </div>
     </div>
   );
 }
 
 export default function Home() {
-  const [currentView, setCurrentView] = useState('screener');
-  const confluenceAlerts = useMarketStore((state) => state.confluenceAlerts);
+  const [view, setView] = useState('screener');
+  const alerts = useMarketStore((state) => state.confluenceAlerts);
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden" style={{ background: 'var(--background)' }}>
-      {/* Premium Header with Gradient */}
+    <div className="flex flex-col h-screen" style={{ background: 'var(--bg-primary)' }}>
+      {/* Header */}
       <header
-        className="relative border-b"
+        className="border-b flex items-center justify-between px-4 h-12"
         style={{
-          background: 'linear-gradient(135deg, var(--surface-elevated) 0%, var(--surface) 100%)',
-          borderColor: 'var(--border)'
+          borderColor: 'var(--border-color)',
+          background: 'var(--bg-secondary)'
         }}
       >
-        {/* Accent Line */}
-        <div className="absolute top-0 left-0 right-0 h-[2px]" style={{
-          background: 'linear-gradient(90deg, transparent, var(--primary), transparent)'
-        }} />
-
-        <div className="px-8 py-5">
-          <div className="flex items-center justify-between">
-            {/* Brand Section */}
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <div
-                  className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-lg"
-                  style={{
-                    background: 'linear-gradient(135deg, var(--primary), var(--info))',
-                    boxShadow: '0 4px 14px rgba(59, 130, 246, 0.4)'
-                  }}
-                >
-                  <Zap className="w-5 h-5" />
-                </div>
-              </div>
-              <div>
-                <h1 className="text-xl font-bold gradient-text" style={{ color: 'var(--text-primary)' }}>
-                  Alphalabs Crypto Terminal
-                </h1>
-                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                  Professional Trading Intelligence
-                </p>
-              </div>
-            </div>
-
-            {/* Center Navigation - Tabs */}
-            <nav className="flex items-center gap-1 p-1 rounded-xl" style={{
-              background: 'var(--surface)',
-              border: '1px solid var(--border)'
-            }}>
-              <NavTab
-                icon={<Activity className="w-4 h-4" />}
-                label="Screener"
-                active={currentView === 'screener'}
-                onClick={() => setCurrentView('screener')}
-              />
-
-              <NavTab
-                icon={<Bell className="w-4 h-4" />}
-                label="Alerts"
-                badge={confluenceAlerts.length}
-                active={currentView === 'alerts'}
-                onClick={() => setCurrentView('alerts')}
-              />
-
-              <NavTab
-                icon={<Settings className="w-4 h-4" />}
-                label="Settings"
-                active={currentView === 'settings'}
-                onClick={() => setCurrentView('settings')}
-              />
-            </nav>
-
-            {/* Status Indicators */}
-            <div className="flex items-center gap-3">
-              <StatusIndicator />
-            </div>
+        <div className="flex items-center gap-3">
+          <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+            Crypto Terminal
+          </div>
+          <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            Futures
           </div>
         </div>
 
-        {/* Context Bar */}
-        <div className="px-8 pb-4">
-          <div className="flex items-center gap-2">
-            <div
-              className="h-1 w-12 rounded-full"
-              style={{ background: 'var(--primary)' }}
-            />
-            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-              {currentView === 'screener' &&
-                'Real-time funding rates, open interest, and CVD tracking across 200+ pairs'}
-              {currentView === 'alerts' && 'Intelligent confluence detection for high-probability trading setups'}
-              {currentView === 'settings' && 'Configure your terminal preferences and data sources'}
-            </p>
-          </div>
-        </div>
+        <nav className="flex items-center gap-1">
+          <NavButton
+            icon={<Activity size={16} />}
+            label="Screener"
+            active={view === 'screener'}
+            onClick={() => setView('screener')}
+          />
+          <NavButton
+            icon={<Bell size={16} />}
+            label="Alerts"
+            badge={alerts.length}
+            active={view === 'alerts'}
+            onClick={() => setView('alerts')}
+          />
+          <NavButton
+            icon={<Settings size={16} />}
+            label="Settings"
+            active={view === 'settings'}
+            onClick={() => setView('settings')}
+          />
+        </nav>
+
+        <ConnectionStatus />
       </header>
 
-      {/* Main Content Area */}
+      {/* Content */}
       <main className="flex-1 overflow-hidden">
-        <div className="h-full animate-fade-in">
-          {currentView === 'screener' && <ScreenerView />}
-          {currentView === 'alerts' && <AlertsView />}
-          {currentView === 'settings' && <SettingsPlaceholder />}
-        </div>
+        {view === 'screener' && <ScreenerView />}
+        {view === 'alerts' && <AlertsView />}
+        {view === 'settings' && <SettingsView />}
       </main>
     </div>
   );
 }
 
-function NavTab({
-  icon,
-  label,
-  badge,
-  active,
-  onClick
-}: {
-  icon: React.ReactNode;
-  label: string;
-  badge?: number;
-  active: boolean;
-  onClick: () => void;
-}) {
+function NavButton({ icon, label, badge, active, onClick }: any) {
   return (
     <button
       onClick={onClick}
-      className="relative px-5 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 flex items-center gap-2"
+      className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium transition-colors"
       style={{
-        background: active ? 'var(--primary)' : 'transparent',
-        color: active ? 'white' : 'var(--text-secondary)',
+        background: active ? 'var(--bg-tertiary)' : 'transparent',
+        color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+        border: active ? '1px solid var(--border-hover)' : '1px solid transparent',
+        borderRadius: '4px'
       }}
     >
       {icon}
       <span>{label}</span>
-      {badge !== undefined && badge > 0 && (
+      {badge > 0 && (
         <span
-          className="flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold rounded-full"
+          className="px-1.5 py-0.5 text-xs rounded"
           style={{
-            background: active ? 'rgba(255, 255, 255, 0.2)' : 'var(--danger)',
-            color: 'white'
+            background: 'var(--red)',
+            color: 'white',
+            minWidth: '18px',
+            textAlign: 'center'
           }}
         >
           {badge > 99 ? '99+' : badge}
@@ -174,59 +114,34 @@ function NavTab({
   );
 }
 
-function StatusIndicator() {
+function ConnectionStatus() {
   return (
-    <div
-      className="flex items-center gap-2.5 px-4 py-2 rounded-lg"
-      style={{
-        background: 'var(--success-light)',
-        border: '1px solid var(--success)'
-      }}
-    >
+    <div className="flex items-center gap-2 text-xs">
       <div
-        className="w-2 h-2 rounded-full animate-pulse-glow"
-        style={{
-          background: 'var(--success)',
-          boxShadow: '0 0 10px var(--success)'
-        }}
+        className="w-1.5 h-1.5 rounded-full"
+        style={{ background: 'var(--green)' }}
       />
-      <span className="text-sm font-semibold" style={{ color: 'var(--success)' }}>
-        Live
-      </span>
-      <div className="h-3 w-px" style={{ background: 'var(--success)' }} />
-      <span className="text-xs" style={{ color: 'var(--success-dark)' }}>
-        Connected
-      </span>
+      <span style={{ color: 'var(--text-secondary)' }}>Connected</span>
     </div>
   );
 }
 
-function SettingsPlaceholder() {
+function SettingsView() {
   return (
     <div className="flex items-center justify-center h-full">
-      <div className="text-center max-w-md">
-        <div
-          className="w-24 h-24 mx-auto mb-6 rounded-2xl flex items-center justify-center"
+      <div className="text-center">
+        <Settings
+          size={48}
           style={{
-            background: 'var(--surface-elevated)',
-            border: '1px solid var(--border)'
+            color: 'var(--text-muted)',
+            margin: '0 auto 16px'
           }}
-        >
-          <Settings className="w-12 h-12" style={{ color: 'var(--primary)' }} />
+        />
+        <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+          Settings panel
         </div>
-        <h2 className="text-3xl font-bold mb-3" style={{ color: 'var(--text-primary)' }}>
-          Settings
-        </h2>
-        <p style={{ color: 'var(--text-secondary)' }}>
-          Terminal settings and configuration options will be available here.
-        </p>
-        <div className="mt-6 p-4 rounded-lg" style={{
-          background: 'var(--surface)',
-          border: '1px solid var(--border)'
-        }}>
-          <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
-            Coming soon: API configuration, alert preferences, display settings, and more.
-          </p>
+        <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+          Configuration options will appear here
         </div>
       </div>
     </div>

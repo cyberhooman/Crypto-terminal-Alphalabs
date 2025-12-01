@@ -9,12 +9,10 @@ import {
   type ColumnDef,
   type SortingState,
 } from '@tanstack/react-table';
-import { ArrowUp, ArrowDown, TrendingUp, TrendingDown, Minus, Database } from 'lucide-react';
+import { ArrowUpDown } from 'lucide-react';
 import type { MarketData } from '@/lib/types';
 import {
   formatNumber,
-  formatCurrency,
-  formatPercentage,
   formatPrice,
 } from '@/lib/utils/formatters';
 
@@ -31,192 +29,109 @@ export default function DataTable({ data }: DataTableProps) {
     () => [
       {
         accessorKey: 'symbol',
-        header: 'Symbol',
+        header: 'Pair',
         cell: ({ getValue }) => {
           const symbol = getValue() as string;
           const base = symbol.replace('USDT', '');
           return (
-            <div className="flex items-center gap-2">
-              <div
-                className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs"
-                style={{
-                  background: 'linear-gradient(135deg, var(--primary), var(--info))',
-                  color: 'white'
-                }}
-              >
-                {base.substring(0, 2)}
-              </div>
-              <div>
-                <div className="font-mono text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                  {base}
-                </div>
-                <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                  /USDT
-                </div>
-              </div>
-            </div>
-          );
-        },
-        size: 160,
-      },
-      {
-        accessorKey: 'price',
-        header: 'Price',
-        cell: ({ getValue }) => (
-          <span className="font-mono text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-            ${formatPrice(getValue() as number)}
-          </span>
-        ),
-        size: 130,
-      },
-      {
-        accessorKey: 'priceChangePercent',
-        header: '24h Change',
-        cell: ({ getValue }) => {
-          const value = (getValue() as number) || 0;
-          const isPositive = value >= 0;
-          return (
-            <div className="flex items-center gap-1.5">
-              {isPositive ? (
-                <TrendingUp className="w-3.5 h-3.5" style={{ color: 'var(--success)' }} />
-              ) : (
-                <TrendingDown className="w-3.5 h-3.5" style={{ color: 'var(--danger)' }} />
-              )}
-              <span
-                className="font-mono text-sm font-semibold"
-                style={{ color: isPositive ? 'var(--success)' : 'var(--danger)' }}
-              >
-                {value >= 0 ? '+' : ''}
-                {value.toFixed(2)}%
-              </span>
+            <div className="font-mono text-sm" style={{ color: 'var(--text-primary)' }}>
+              {base}<span style={{ color: 'var(--text-muted)' }}>/USDT</span>
             </div>
           );
         },
         size: 120,
       },
       {
+        accessorKey: 'price',
+        header: 'Price',
+        cell: ({ getValue }) => (
+          <span className="font-mono text-sm" style={{ color: 'var(--text-primary)' }}>
+            ${formatPrice(getValue() as number)}
+          </span>
+        ),
+        size: 110,
+      },
+      {
+        accessorKey: 'priceChangePercent',
+        header: '24h %',
+        cell: ({ getValue }) => {
+          const value = (getValue() as number) || 0;
+          const color = value >= 0 ? 'var(--green)' : 'var(--red)';
+          return (
+            <span className="font-mono text-sm" style={{ color }}>
+              {value >= 0 ? '+' : ''}{value.toFixed(2)}%
+            </span>
+          );
+        },
+        size: 90,
+      },
+      {
         accessorKey: 'quoteVolume',
-        header: '24h Volume',
+        header: 'Volume',
         cell: ({ getValue }) => {
           const value = (getValue() as number) || 0;
           return (
-            <div>
-              <div className="font-mono text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                ${formatNumber(value, 0)}
-              </div>
-              <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                {value > 1e9 ? 'High Volume' : value > 1e8 ? 'Medium' : 'Low'}
-              </div>
-            </div>
+            <span className="font-mono text-sm" style={{ color: 'var(--text-secondary)' }}>
+              ${formatNumber(value, 0)}
+            </span>
           );
         },
-        size: 140,
+        size: 120,
       },
       {
         accessorKey: 'fundingRate',
-        header: 'Funding Rate',
+        header: 'Funding',
         cell: ({ getValue }) => {
           const value = (getValue() as number) || 0;
-          const absValue = Math.abs(value);
           const apr = value * 3 * 365;
-
-          let bgColor, textColor, label;
-          if (absValue > 0.0008) {
-            bgColor = 'var(--danger-light)';
-            textColor = 'var(--danger)';
-            label = 'Extreme';
-          } else if (absValue > 0.0004) {
-            bgColor = 'var(--warning-light)';
-            textColor = 'var(--warning)';
-            label = 'High';
-          } else {
-            bgColor = 'var(--surface-elevated)';
-            textColor = value > 0 ? 'var(--success)' : 'var(--info)';
-            label = 'Normal';
-          }
+          const color = Math.abs(value) > 0.0006
+            ? 'var(--yellow)'
+            : value > 0
+            ? 'var(--green)'
+            : 'var(--red)';
 
           return (
-            <div className="flex items-center gap-2">
-              <div
-                className="px-2 py-1 rounded-md flex-1"
-                style={{ background: bgColor }}
-              >
-                <div className="font-mono text-sm font-semibold" style={{ color: textColor }}>
-                  {formatPercentage(value, 4)}
-                </div>
-                <div className="text-xs" style={{ color: textColor, opacity: 0.7 }}>
-                  {apr >= 0 ? '+' : ''}{apr.toFixed(1)}% APR
-                </div>
+            <div>
+              <div className="font-mono text-sm" style={{ color }}>
+                {(value * 100).toFixed(4)}%
+              </div>
+              <div className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
+                {apr >= 0 ? '+' : ''}{apr.toFixed(1)}%
               </div>
             </div>
           );
         },
-        size: 140,
+        size: 100,
       },
       {
         accessorKey: 'openInterestValue',
-        header: 'Open Interest',
+        header: 'OI',
         cell: ({ getValue }) => {
           const value = (getValue() as number) || 0;
           if (value === 0) return (
-            <span className="font-mono text-sm" style={{ color: 'var(--text-muted)' }}>
-              —
-            </span>
+            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>-</span>
           );
           return (
-            <div className="flex items-center gap-2">
-              <Database className="w-3.5 h-3.5" style={{ color: 'var(--info)' }} />
-              <div>
-                <div className="font-mono text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                  ${formatNumber(value, 1)}
-                </div>
-                <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                  8h
-                </div>
-              </div>
-            </div>
+            <span className="font-mono text-sm" style={{ color: 'var(--text-secondary)' }}>
+              ${formatNumber(value, 1)}
+            </span>
           );
         },
-        size: 140,
+        size: 110,
       },
       {
         accessorKey: 'cvd',
         header: 'CVD',
         cell: ({ getValue }) => {
           const value = (getValue() as number) || 0;
-          const isPositive = value >= 0;
-          const absValue = Math.abs(value);
-
+          const color = value >= 0 ? 'var(--green)' : 'var(--red)';
           return (
-            <div
-              className="px-2 py-1 rounded-md"
-              style={{
-                background: isPositive ? 'var(--success-light)' : 'var(--danger-light)'
-              }}
-            >
-              <div className="flex items-center gap-1.5">
-                {isPositive ? (
-                  <ArrowUp className="w-3.5 h-3.5" style={{ color: 'var(--success)' }} />
-                ) : (
-                  <ArrowDown className="w-3.5 h-3.5" style={{ color: 'var(--danger)' }} />
-                )}
-                <div className="flex-1">
-                  <div
-                    className="font-mono text-sm font-semibold"
-                    style={{ color: isPositive ? 'var(--success)' : 'var(--danger)' }}
-                  >
-                    {value >= 0 ? '+' : ''}
-                    {formatNumber(value, 0)}
-                  </div>
-                  <div className="text-xs" style={{ color: isPositive ? 'var(--success)' : 'var(--danger)', opacity: 0.7 }}>
-                    1h Delta
-                  </div>
-                </div>
-              </div>
-            </div>
+            <span className="font-mono text-sm" style={{ color }}>
+              {value >= 0 ? '+' : ''}{formatNumber(value, 0)}
+            </span>
           );
         },
-        size: 130,
+        size: 100,
       },
     ],
     []
@@ -225,9 +140,7 @@ export default function DataTable({ data }: DataTableProps) {
   const table = useReactTable({
     data,
     columns,
-    state: {
-      sorting,
-    },
+    state: { sorting },
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -236,35 +149,21 @@ export default function DataTable({ data }: DataTableProps) {
   if (data.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <div
-            className="w-20 h-20 mx-auto mb-4 rounded-2xl flex items-center justify-center"
-            style={{
-              background: 'var(--surface-elevated)',
-              border: '1px solid var(--border)'
-            }}
-          >
-            <Database className="w-10 h-10" style={{ color: 'var(--text-tertiary)' }} />
-          </div>
-          <p className="text-lg font-medium" style={{ color: 'var(--text-secondary)' }}>
-            No data available
-          </p>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-tertiary)' }}>
-            Waiting for market data...
-          </p>
+        <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+          No data
         </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full h-full overflow-auto" style={{ background: 'var(--background)' }}>
-      <table className="w-full border-collapse">
+    <div className="w-full h-full overflow-auto">
+      <table className="w-full" style={{ borderCollapse: 'collapse' }}>
         <thead
-          className="sticky top-0 z-10"
+          className="sticky top-0"
           style={{
-            background: 'var(--surface)',
-            borderBottom: '2px solid var(--border-light)'
+            background: 'var(--bg-secondary)',
+            borderBottom: '1px solid var(--border-color)'
           }}
         >
           {table.getHeaderGroups().map((headerGroup) => (
@@ -272,30 +171,21 @@ export default function DataTable({ data }: DataTableProps) {
               {headerGroup.headers.map((header) => (
                 <th
                   key={header.id}
-                  className="px-4 py-3.5 text-left cursor-pointer select-none transition-all group"
+                  className="px-3 py-2 text-left cursor-pointer select-none"
                   onClick={header.column.getToggleSortingHandler()}
                   style={{
                     width: header.getSize(),
-                    color: 'var(--text-tertiary)',
+                    color: 'var(--text-muted)',
                     fontSize: '11px',
-                    fontWeight: 600,
+                    fontWeight: 500,
                     textTransform: 'uppercase',
-                    letterSpacing: '0.05em'
+                    userSelect: 'none'
                   }}
                 >
-                  <div className="flex items-center gap-2">
-                    {flexRender(
-                      header.column.columnDef.header,
-                      header.getContext()
-                    )}
-                    {header.column.getIsSorted() ? (
-                      header.column.getIsSorted() === 'desc' ? (
-                        <ArrowDown className="w-3.5 h-3.5" style={{ color: 'var(--primary)' }} />
-                      ) : (
-                        <ArrowUp className="w-3.5 h-3.5" style={{ color: 'var(--primary)' }} />
-                      )
-                    ) : (
-                      <Minus className="w-3.5 h-3.5 opacity-0 group-hover:opacity-50 transition-opacity" />
+                  <div className="flex items-center gap-1">
+                    {flexRender(header.column.columnDef.header, header.getContext())}
+                    {header.column.getIsSorted() && (
+                      <ArrowUpDown size={12} style={{ color: 'var(--accent)' }} />
                     )}
                   </div>
                 </th>
@@ -307,20 +197,20 @@ export default function DataTable({ data }: DataTableProps) {
           {table.getRowModel().rows.map((row, idx) => (
             <tr
               key={row.id}
-              className="transition-all cursor-pointer group"
+              className="cursor-pointer"
               style={{
-                background: idx % 2 === 0 ? 'var(--surface)' : 'var(--background)',
-                borderBottom: '1px solid var(--border)'
+                borderBottom: '1px solid var(--border-color)',
+                background: idx % 2 === 0 ? 'var(--bg-secondary)' : 'transparent'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--bg-tertiary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = idx % 2 === 0 ? 'var(--bg-secondary)' : 'transparent';
               }}
             >
               {row.getVisibleCells().map((cell) => (
-                <td
-                  key={cell.id}
-                  className="px-4 py-3 transition-all"
-                  style={{
-                    borderLeft: cell.column.id === 'symbol' ? '2px solid transparent' : 'none'
-                  }}
-                >
+                <td key={cell.id} className="px-3 py-2">
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </td>
               ))}
