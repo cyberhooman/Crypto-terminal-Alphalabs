@@ -1,10 +1,31 @@
 'use client';
 
-import { useState } from 'react';
-import { Bell, Settings, Activity, Zap } from 'lucide-react';
-import ScreenerView from '@/components/screener/ScreenerView';
-import AlertsView from '@/components/alerts/AlertsView';
+import { useState, useEffect } from 'react';
+import { Bell, Settings, Activity, Zap, RefreshCw } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import { useMarketStore } from '@/stores/useMarketStore';
+
+// Dynamically import heavy components to prevent SSR/build issues
+const ScreenerView = dynamic(() => import('@/components/screener/ScreenerView'), {
+  ssr: false,
+  loading: () => <LoadingPlaceholder message="Loading Screener..." />
+});
+
+const AlertsView = dynamic(() => import('@/components/alerts/AlertsView'), {
+  ssr: false,
+  loading: () => <LoadingPlaceholder message="Loading Alerts..." />
+});
+
+function LoadingPlaceholder({ message }: { message: string }) {
+  return (
+    <div className="flex-1 flex items-center justify-center">
+      <div className="text-center">
+        <RefreshCw className="w-12 h-12 text-blue-500 animate-spin mx-auto mb-4" />
+        <p style={{ color: 'var(--text-secondary)' }}>{message}</p>
+      </div>
+    </div>
+  );
+}
 
 export default function Home() {
   const [currentView, setCurrentView] = useState('screener');

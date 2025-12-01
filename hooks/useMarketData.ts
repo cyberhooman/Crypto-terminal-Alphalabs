@@ -1,22 +1,31 @@
 // Custom hook for market data integration
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMarketStore } from '@/stores/useMarketStore';
-import { hybridMarketDataService } from '@/lib/services/hybridMarketData';
 
 export function useMarketData() {
   const { marketData, isLoading, setLoading, setMarketData } = useMarketStore();
   const isInitialized = useRef(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Ensure we only run in browser
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
-    if (isInitialized.current) return;
+    // Don't run on server or if already initialized
+    if (!isMounted || isInitialized.current) return;
     isInitialized.current = true;
 
     const initializeData = async () => {
       try {
         setLoading(true);
         console.log('🔄 Connecting to hybrid market data service (CoinGlass + Binance)...');
+
+        // Dynamic import to prevent build-time execution
+        const { hybridMarketDataService } = await import('@/lib/services/hybridMarketData');
 
         await hybridMarketDataService.initialize();
         console.log('✅ Hybrid market data service initialized');
@@ -64,11 +73,14 @@ export function useMarketData() {
 
     return () => {
       if (isInitialized.current) {
-        hybridMarketDataService.destroy();
+        // Dynamic import for cleanup
+        import('@/lib/services/hybridMarketData').then(({ hybridMarketDataService }) => {
+          hybridMarketDataService.destroy();
+        });
         isInitialized.current = false;
       }
     };
-  }, [setLoading, setMarketData]);
+  }, [isMounted, setLoading, setMarketData]);
 
   return {
     marketData,

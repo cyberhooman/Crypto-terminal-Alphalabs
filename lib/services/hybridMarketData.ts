@@ -1,27 +1,62 @@
 // Hybrid market data service: CoinGlass for Funding/OI, Binance for CVD
-import { binanceAPI } from '../binance/api';
-import { binanceWS } from '../binance/websocketClient';
-import { coinGlassAPI } from '../coinglass/api';
-import { cvdCalculator, type Trade } from '../utils/cvd';
+// Only runs in browser - prevents build-time API calls on Railway
 import type { MarketData } from '../types';
+import type { Trade } from '../utils/cvd';
+
+// Lazy imports to prevent build-time execution
+let binanceAPI: any = null;
+let binanceWS: any = null;
+let coinGlassAPI: any = null;
+let cvdCalculator: any = null;
+
+const loadDependencies = async () => {
+  if (typeof window === 'undefined') return false;
+
+  if (!binanceAPI) {
+    const [binanceModule, wsModule, coinglassModule, cvdModule] = await Promise.all([
+      import('../binance/api'),
+      import('../binance/websocketClient'),
+      import('../coinglass/api'),
+      import('../utils/cvd'),
+    ]);
+    binanceAPI = binanceModule.binanceAPI;
+    binanceWS = wsModule.binanceWS;
+    coinGlassAPI = coinglassModule.coinGlassAPI;
+    cvdCalculator = cvdModule.cvdCalculator;
+  }
+  return true;
+};
 
 export class HybridMarketDataService {
   private marketData: Map<string, MarketData> = new Map();
   private symbols: string[] = [];
   private updateCallbacks: Set<(data: Map<string, MarketData>) => void> = new Set();
   private isInitialized: boolean = false;
-  private updateInterval: NodeJS.Timeout | null = null;
+  private updateInterval: ReturnType<typeof setInterval> | null = null;
   private useCoinGlass: boolean = true;
 
   constructor() {}
 
   async initialize(): Promise<void> {
+    // Guard: Only run in browser
+    if (typeof window === 'undefined') {
+      console.log('Skipping initialization - not in browser');
+      return;
+    }
+
     if (this.isInitialized) {
       console.log('Hybrid market data service already initialized');
       return;
     }
 
     try {
+      // Load dependencies dynamically
+      const loaded = await loadDependencies();
+      if (!loaded) {
+        console.log('Failed to load dependencies - not in browser');
+        return;
+      }
+
       console.log('Initializing hybrid market data service...');
       console.log('- CoinGlass: Funding rates & OI (aggregated)');
       console.log('- Binance: CVD & price data');
@@ -66,56 +101,79 @@ export class HybridMarketDataService {
   private async fetchInitialData(): Promise<void> {
     try {
       // Get symbols from Binance
-      const exchangeInfo = await binanceAPI.getExchangeInfo();
+      const exchangeInfo: Array<{ symbol: string; quoteAsset: string }> = await binanceAPI.getExchangeInfo();
       this.symbols = exchangeInfo
-        .filter(s => s.quoteAsset === 'USDT')
-        .map(s => s.symbol);
+        .filter((s: { quoteAsset: string }) => s.quoteAsset === 'USDT')
+        .map((s: { symbol: string }) => s.symbol);
 
       console.log(`📊 Loaded ${this.symbols.length} USDT perpetual symbols`);
 
       // Fetch price data from Binance
-      const tickers = await binanceAPI.get24hrTicker();
-      const tickerMap = new Map(tickers.map(t => [t.symbol, t]));
+      const tickers: any[] = await binanceAPI.get24hrTicker();
+      const tickerMap = new Map(tickers.map((t: any) => [t.symbol, t]));
 
       // Fetch funding & OI from CoinGlass (if available) or Binance
       let fundingMap = new Map();
       let oiMap = new Map();
 
-      if (this.useCoinGlass) {
-        // Use CoinGlass for aggregated data
-        console.log('📡 Fetching aggregated funding rates from CoinGlass...');
-        const fundingRates = await coinGlassAPI.getFundingRates();
-        fundingRates.forEach(f => {
-          // CoinGlass uses format like "BTCUSD", convert to "BTCUSDT"
-          const symbol = f.symbol.replace('USD', 'USDT');
-          fundingMap.set(symbol, {
-            fundingRate: f.rate,
-            nextFundingTime: f.nextFundingTime,
-          });
+      // Helper to normalize CoinGlass symbols to Binance format
+      const normalizeCoinGlassSymbol = (symbol: string): string => {
+        // CoinGlass may use "BTC" or "BTCUSD" - we need "BTCUSDT"
+        if (symbol.endsWith('USDT')) return symbol;
+        if (symbol.endsWith('USD')) return symbol.slice(0, -3) + 'USDT';
+        return symbol + 'USDT';
+      };
+
+      // Always fetch from Binance first (reliable baseline)
+      console.log('📡 Fetching funding rates from Binance...');
+      const binanceFunding: any[] = await binanceAPI.getFundingRates();
+      binanceFunding.forEach((f: any) => {
+        fundingMap.set(f.symbol, {
+          fundingRate: f.fundingRate,
+          nextFundingTime: f.nextFundingTime,
         });
+      });
+
+      if (this.useCoinGlass) {
+        // Overlay CoinGlass aggregated data (more accurate for major pairs)
+        console.log('📡 Fetching aggregated funding rates from CoinGlass...');
+        try {
+          const fundingRates: any[] = await coinGlassAPI.getFundingRates();
+          fundingRates.forEach((f: any) => {
+            const symbol = normalizeCoinGlassSymbol(f.symbol);
+            if (this.symbols.includes(symbol)) {
+              fundingMap.set(symbol, {
+                fundingRate: f.rate,
+                nextFundingTime: f.nextFundingTime,
+              });
+            }
+          });
+        } catch (e) {
+          console.warn('CoinGlass funding fetch failed, using Binance data');
+        }
 
         console.log('📡 Fetching aggregated OI from CoinGlass...');
-        const openInterests = await coinGlassAPI.getOpenInterest();
-        openInterests.forEach(oi => {
-          const symbol = oi.symbol.replace('USD', 'USDT');
-          oiMap.set(symbol, {
-            openInterest: oi.totalOI,
-            openInterestValue: oi.totalOIValue,
+        try {
+          const openInterests: any[] = await coinGlassAPI.getOpenInterest();
+          openInterests.forEach((oi: any) => {
+            const symbol = normalizeCoinGlassSymbol(oi.symbol);
+            if (this.symbols.includes(symbol)) {
+              oiMap.set(symbol, {
+                openInterest: oi.totalOI,
+                openInterestValue: oi.totalOIValue,
+              });
+            }
           });
-        });
+        } catch (e) {
+          console.warn('CoinGlass OI fetch failed');
+        }
 
         console.log(`✅ CoinGlass: ${fundingMap.size} funding rates, ${oiMap.size} OI values`);
-      } else {
-        // Fallback to Binance
-        console.log('📡 Fetching funding rates from Binance...');
-        const fundingRates = await binanceAPI.getFundingRates();
-        fundingRates.forEach(f => {
-          fundingMap.set(f.symbol, {
-            fundingRate: f.fundingRate,
-            nextFundingTime: f.nextFundingTime,
-          });
-        });
       }
+
+      // Fetch OI from Binance for symbols not covered by CoinGlass
+      console.log('📡 Fetching OI from Binance for remaining symbols...');
+      await this.fetchBinanceOI(oiMap, tickers);
 
       // Initialize market data
       for (const ticker of tickers) {
@@ -147,9 +205,13 @@ export class HybridMarketDataService {
         this.marketData.set(ticker.symbol, marketData);
       }
 
-      // Initialize CVD for top symbols
-      const topSymbols = this.symbols.slice(0, 30);
-      await this.initializeCVD(topSymbols);
+      // Initialize CVD for top 100 symbols by volume
+      const topSymbolsByVolume = tickers
+        .filter((t: any) => this.symbols.includes(t.symbol))
+        .sort((a: any, b: any) => b.quoteVolume - a.quoteVolume)
+        .slice(0, 100)
+        .map((t: any) => t.symbol);
+      await this.initializeCVD(topSymbolsByVolume);
 
       console.log('✅ Initial data loaded');
     } catch (error) {
@@ -160,17 +222,17 @@ export class HybridMarketDataService {
 
   private subscribeToStreams(): void {
     // Subscribe to price updates (Binance)
-    binanceWS.subscribeAllTickers((data) => {
+    binanceWS.subscribeAllTickers((data: any) => {
       if (Array.isArray(data)) {
-        data.forEach(ticker => this.handleMiniTickerUpdate(ticker));
+        data.forEach((ticker: any) => this.handleMiniTickerUpdate(ticker));
       }
     });
 
     // Subscribe to mark price for real-time funding (if not using CoinGlass)
     if (!this.useCoinGlass) {
-      binanceWS.subscribeAllMarkPrices((data) => {
+      binanceWS.subscribeAllMarkPrices((data: any) => {
         if (Array.isArray(data)) {
-          data.forEach(markPrice => this.handleMarkPriceUpdate(markPrice));
+          data.forEach((markPrice: any) => this.handleMarkPriceUpdate(markPrice));
         }
       });
     }
@@ -236,8 +298,8 @@ export class HybridMarketDataService {
 
     const promises = symbols.map(async (symbol) => {
       try {
-        const trades = await binanceAPI.getAggTrades(symbol, 1000);
-        const historicalTrades: Trade[] = trades.map(t => ({
+        const trades: any[] = await binanceAPI.getAggTrades(symbol, 1000);
+        const historicalTrades: Trade[] = trades.map((t: any) => ({
           price: t.price,
           quantity: t.quantity,
           timestamp: t.timestamp,
@@ -262,6 +324,51 @@ export class HybridMarketDataService {
     console.log('✅ CVD initialized');
   }
 
+  // Fetch OI from Binance for symbols not in oiMap
+  private async fetchBinanceOI(oiMap: Map<string, any>, tickers: any[]): Promise<void> {
+    // Sort by volume and get top 100 symbols that don't have OI data
+    const symbolsNeedingOI = tickers
+      .filter((t: any) => this.symbols.includes(t.symbol) && !oiMap.has(t.symbol))
+      .sort((a: any, b: any) => b.quoteVolume - a.quoteVolume)
+      .slice(0, 100)
+      .map((t: any) => t.symbol);
+
+    if (symbolsNeedingOI.length === 0) {
+      console.log('✅ All symbols have OI data from CoinGlass');
+      return;
+    }
+
+    console.log(`📡 Fetching OI for ${symbolsNeedingOI.length} symbols from Binance...`);
+
+    // Batch fetch with rate limiting
+    const batchSize = 10;
+    for (let i = 0; i < symbolsNeedingOI.length; i += batchSize) {
+      const batch = symbolsNeedingOI.slice(i, i + batchSize);
+
+      await Promise.all(batch.map(async (symbol: string) => {
+        try {
+          const oi = await binanceAPI.getOpenInterest(symbol);
+          const ticker = tickers.find((t: any) => t.symbol === symbol);
+          const price = ticker?.price || 0;
+
+          oiMap.set(symbol, {
+            openInterest: oi.openInterest,
+            openInterestValue: oi.openInterest * price,
+          });
+        } catch (e) {
+          // Skip symbols that fail
+        }
+      }));
+
+      // Small delay to avoid rate limiting
+      if (i + batchSize < symbolsNeedingOI.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+
+    console.log(`✅ Binance OI: ${oiMap.size} total symbols with OI data`);
+  }
+
   private startPeriodicUpdates(): void {
     // Update funding & OI every 5 minutes (CoinGlass) or 30 seconds (Binance)
     const interval = this.useCoinGlass ? 300000 : 30000;
@@ -277,15 +384,22 @@ export class HybridMarketDataService {
     console.log(`⏱️  Periodic updates: every ${interval / 1000}s`);
   }
 
+  // Helper to normalize CoinGlass symbols
+  private normalizeCoinGlassSymbol(symbol: string): string {
+    if (symbol.endsWith('USDT')) return symbol;
+    if (symbol.endsWith('USD')) return symbol.slice(0, -3) + 'USDT';
+    return symbol + 'USDT';
+  }
+
   private async updateFromCoinGlass(): Promise<void> {
     try {
-      const [fundingRates, openInterests] = await Promise.all([
+      const [fundingRates, openInterests]: [any[], any[]] = await Promise.all([
         coinGlassAPI.getFundingRates(),
         coinGlassAPI.getOpenInterest(),
       ]);
 
-      fundingRates.forEach(f => {
-        const symbol = f.symbol.replace('USD', 'USDT');
+      fundingRates.forEach((f: any) => {
+        const symbol = this.normalizeCoinGlassSymbol(f.symbol);
         const data = this.marketData.get(symbol);
         if (data) {
           data.fundingRate = f.rate;
@@ -294,8 +408,8 @@ export class HybridMarketDataService {
         }
       });
 
-      openInterests.forEach(oi => {
-        const symbol = oi.symbol.replace('USD', 'USDT');
+      openInterests.forEach((oi: any) => {
+        const symbol = this.normalizeCoinGlassSymbol(oi.symbol);
         const data = this.marketData.get(symbol);
         if (data) {
           data.openInterest = oi.totalOI;
@@ -367,10 +481,14 @@ export class HybridMarketDataService {
       clearInterval(this.updateInterval);
       this.updateInterval = null;
     }
-    binanceWS.disconnect();
+    if (binanceWS) {
+      binanceWS.disconnect();
+    }
     this.marketData.clear();
     this.updateCallbacks.clear();
-    cvdCalculator.resetAll();
+    if (cvdCalculator) {
+      cvdCalculator.resetAll();
+    }
     this.isInitialized = false;
   }
 }

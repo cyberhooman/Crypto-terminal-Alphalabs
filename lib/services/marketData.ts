@@ -1,26 +1,59 @@
 // Market data aggregation service
-import { binanceAPI } from '../binance/api';
-import { binanceWS } from '../binance/websocket';
-import { cvdCalculator, type Trade } from '../utils/cvd';
+// Only runs in browser - prevents build-time API calls on Railway
 import type { MarketData, OpenInterest, FundingRate } from '../types';
+import type { Trade } from '../utils/cvd';
+
+// Lazy imports to prevent build-time execution
+let binanceAPI: any = null;
+let binanceWS: any = null;
+let cvdCalculator: any = null;
+
+const loadDependencies = async () => {
+  if (typeof window === 'undefined') return false;
+
+  if (!binanceAPI) {
+    const [binanceModule, wsModule, cvdModule] = await Promise.all([
+      import('../binance/api'),
+      import('../binance/websocket'),
+      import('../utils/cvd'),
+    ]);
+    binanceAPI = binanceModule.binanceAPI;
+    binanceWS = wsModule.binanceWS;
+    cvdCalculator = cvdModule.cvdCalculator;
+  }
+  return true;
+};
 
 export class MarketDataService {
   private marketData: Map<string, MarketData> = new Map();
   private symbols: string[] = [];
   private updateCallbacks: Set<(data: Map<string, MarketData>) => void> = new Set();
   private isInitialized: boolean = false;
-  private updateInterval: NodeJS.Timeout | null = null;
+  private updateInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor() {}
 
   // Initialize the service
   async initialize(): Promise<void> {
+    // Guard: Only run in browser
+    if (typeof window === 'undefined') {
+      console.log('Skipping initialization - not in browser');
+      return;
+    }
+
     if (this.isInitialized) {
       console.log('Market data service already initialized');
       return;
     }
 
     try {
+      // Load dependencies dynamically
+      const loaded = await loadDependencies();
+      if (!loaded) {
+        console.log('Failed to load dependencies - not in browser');
+        return;
+      }
+
       console.log('Initializing market data service...');
 
       // Fetch initial data
@@ -47,19 +80,19 @@ export class MarketDataService {
       console.log('Fetching initial data from backend proxy...');
 
       // Fetch data in parallel for faster loading
-      const [exchangeInfo, tickers, fundingRates] = await Promise.all([
+      const [exchangeInfo, tickers, fundingRates]: [any[], any[], any[]] = await Promise.all([
         binanceAPI.getExchangeInfo(),
         binanceAPI.get24hrTicker(),
         binanceAPI.getFundingRates(),
       ]);
 
       this.symbols = exchangeInfo
-        .filter(s => s.quoteAsset === 'USDT') // Filter for USDT pairs
-        .map(s => s.symbol);
+        .filter((s: any) => s.quoteAsset === 'USDT') // Filter for USDT pairs
+        .map((s: any) => s.symbol);
 
       console.log(`Loaded ${this.symbols.length} USDT perpetual symbols`);
 
-      const fundingMap = new Map(fundingRates.map(f => [f.symbol, f]));
+      const fundingMap = new Map(fundingRates.map((f: any) => [f.symbol, f]));
 
       // Initialize market data (without OI and CVD for fast initial load)
       for (const ticker of tickers) {
@@ -123,23 +156,23 @@ export class MarketDataService {
   // Subscribe to real-time WebSocket streams
   private subscribeToStreams(): void {
     // Subscribe to all mini tickers for price updates
-    binanceWS.subscribeAllMiniTickers((data) => {
+    binanceWS.subscribeAllMiniTickers((data: any) => {
       if (Array.isArray(data)) {
-        data.forEach(ticker => this.handleMiniTickerUpdate(ticker));
+        data.forEach((ticker: any) => this.handleMiniTickerUpdate(ticker));
       }
     });
 
     // Subscribe to mark price updates for funding rates
-    binanceWS.subscribeMarkPriceAll((data) => {
+    binanceWS.subscribeMarkPriceAll((data: any) => {
       if (Array.isArray(data)) {
-        data.forEach(markPrice => this.handleMarkPriceUpdate(markPrice));
+        data.forEach((markPrice: any) => this.handleMarkPriceUpdate(markPrice));
       }
     });
 
     // Subscribe to agg trades for CVD calculation (top 20 symbols)
     const topSymbols = this.symbols.slice(0, 20);
-    topSymbols.forEach(symbol => {
-      binanceWS.subscribeAggTrades(symbol, (trade) => {
+    topSymbols.forEach((symbol: string) => {
+      binanceWS.subscribeAggTrades(symbol, (trade: any) => {
         this.handleAggTrade(symbol, trade);
       });
     });
@@ -205,8 +238,8 @@ export class MarketDataService {
 
     const promises = symbols.map(async (symbol) => {
       try {
-        const trades = await binanceAPI.getAggTrades(symbol, 1000);
-        const historicalTrades: Trade[] = trades.map(t => ({
+        const trades: any[] = await binanceAPI.getAggTrades(symbol, 1000);
+        const historicalTrades: Trade[] = trades.map((t: any) => ({
           price: t.price,
           quantity: t.quantity,
           timestamp: t.timestamp,
@@ -315,10 +348,14 @@ export class MarketDataService {
   // Cleanup
   destroy(): void {
     this.stopPeriodicUpdates();
-    binanceWS.disconnect();
+    if (binanceWS) {
+      binanceWS.disconnect();
+    }
     this.marketData.clear();
     this.updateCallbacks.clear();
-    cvdCalculator.resetAll();
+    if (cvdCalculator) {
+      cvdCalculator.resetAll();
+    }
     this.isInitialized = false;
   }
 }

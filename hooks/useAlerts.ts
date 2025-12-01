@@ -1,7 +1,8 @@
-import { useEffect, useCallback } from 'react';
+'use client';
+
+import { useEffect, useCallback, useState } from 'react';
 import { useMarketStore } from '@/stores/useMarketStore';
 import type { ConfluenceAlert } from '@/lib/alerts/confluenceDetector';
-import { backendAPI } from '@/lib/services/backendAPI';
 
 // Alert severity enum (duplicated from server-side to avoid importing Node.js code)
 export enum AlertSeverity {
@@ -12,6 +13,11 @@ export enum AlertSeverity {
 }
 
 export function useAlerts() {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
   const {
     marketData,
     confluenceAlerts,
@@ -25,9 +31,11 @@ export function useAlerts() {
 
   // Fetch fresh alerts from backend (replaces local detection)
   const fetchBackendAlerts = useCallback(async () => {
-    if (!confluenceAlertsEnabled) return;
+    if (!confluenceAlertsEnabled || !isMounted) return;
 
     try {
+      // Dynamic import to prevent build-time execution
+      const { backendAPI } = await import('@/lib/services/backendAPI');
       const freshAlerts = await backendAPI.getAlerts();
 
       // Check for new alerts
@@ -59,12 +67,15 @@ export function useAlerts() {
     } catch (error) {
       console.error('Error fetching backend alerts:', error);
     }
-  }, [confluenceAlerts, confluenceAlertsEnabled, setConfluenceAlerts, settings.soundEnabled]);
+  }, [isMounted, confluenceAlerts, confluenceAlertsEnabled, setConfluenceAlerts, settings.soundEnabled]);
 
   // Fetch historical alerts from backend on mount
   useEffect(() => {
+    if (!isMounted) return;
+
     async function fetchHistoricalAlerts() {
       try {
+        const { backendAPI } = await import('@/lib/services/backendAPI');
         const alerts = await backendAPI.getAlerts();
         if (alerts && alerts.length > 0) {
           setConfluenceAlerts(alerts);
@@ -76,14 +87,15 @@ export function useAlerts() {
     }
 
     fetchHistoricalAlerts();
-  }, [setConfluenceAlerts]);
+  }, [isMounted, setConfluenceAlerts]);
 
   // Request notification permission on mount
   useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') {
+    if (!isMounted) return;
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
-  }, []);
+  }, [isMounted]);
 
   // Cleanup old alerts (older than 48 hours)
   const cleanupOldAlerts = useCallback(() => {
@@ -101,6 +113,8 @@ export function useAlerts() {
 
   // Fetch backend alerts periodically
   useEffect(() => {
+    if (!isMounted) return;
+
     // Initial fetch
     fetchBackendAlerts();
 
@@ -114,7 +128,7 @@ export function useAlerts() {
       clearInterval(fetchInterval);
       clearInterval(cleanupInterval);
     };
-  }, [fetchBackendAlerts, cleanupOldAlerts]);
+  }, [isMounted, fetchBackendAlerts, cleanupOldAlerts]);
 
   // Clear alerts from both local state AND backend database
   const clearAlertsFromBackend = useCallback(async () => {
@@ -123,6 +137,7 @@ export function useAlerts() {
       clearConfluenceAlerts();
 
       // Clear backend database
+      const { backendAPI } = await import('@/lib/services/backendAPI');
       const result = await backendAPI.deleteAllAlerts();
 
       if (result.success) {
