@@ -119,11 +119,11 @@ export default function ScreenerView() {
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
-          <RefreshCw className="w-12 h-12 text-blue-500 animate-spin mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-white mb-2">
+          <RefreshCw className="w-12 h-12 animate-spin mx-auto mb-4" style={{ color: 'var(--accent)' }} />
+          <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
             Loading Market Data
           </h2>
-          <p className="text-gray-400">
+          <p style={{ color: 'var(--text-secondary)' }}>
             Initializing real-time data stream...
           </p>
         </div>
@@ -137,23 +137,29 @@ export default function ScreenerView() {
       <FilterPanel searchTerm={searchTerm} onSearchChange={setSearchTerm} />
 
       {/* Stats Bar */}
-      <div className="bg-gray-900 border-b border-gray-800 px-4 py-2">
+      <div
+        className="border-b px-4 py-2"
+        style={{
+          background: 'var(--bg-secondary)',
+          borderColor: 'var(--border-color)'
+        }}
+      >
         <div className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-6">
             <div>
-              <span className="text-gray-400">Showing: </span>
-              <span className="text-white font-semibold">
+              <span style={{ color: 'var(--text-secondary)' }}>Showing: </span>
+              <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>
                 {filteredData.length}
               </span>
-              <span className="text-gray-400"> / {marketData.length} pairs</span>
+              <span style={{ color: 'var(--text-secondary)' }}> / {marketData.length} pairs</span>
             </div>
             {activeFilter && (
-              <div className="text-blue-400">
+              <div style={{ color: 'var(--accent)' }}>
                 Filter: <span className="font-semibold">{activeFilter.name}</span>
               </div>
             )}
             {searchTerm && (
-              <div className="text-purple-400">
+              <div style={{ color: 'var(--info)' }}>
                 Search: <span className="font-semibold">{searchTerm}</span>
               </div>
             )}
@@ -161,7 +167,7 @@ export default function ScreenerView() {
 
           <div className="flex items-center gap-3">
             {exportStatus && (
-              <div className="flex items-center gap-2 text-green-400 text-xs font-medium">
+              <div className="flex items-center gap-2 text-xs font-medium" style={{ color: 'var(--success)' }}>
                 <CheckCircle className="w-4 h-4" />
                 {exportStatus}
               </div>
@@ -169,7 +175,20 @@ export default function ScreenerView() {
             <button
               onClick={handleExportCSV}
               disabled={!!exportStatus}
-              className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                background: 'var(--bg-tertiary)',
+                color: 'var(--text-secondary)',
+                border: '1px solid var(--border-color)'
+              }}
+              onMouseEnter={(e) => {
+                if (!exportStatus) {
+                  e.currentTarget.style.background = 'var(--bg-secondary)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'var(--bg-tertiary)';
+              }}
             >
               <Download className="w-3 h-3" />
               CSV
@@ -177,7 +196,20 @@ export default function ScreenerView() {
             <button
               onClick={handleExportJSON}
               disabled={!!exportStatus}
-              className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                background: 'var(--bg-tertiary)',
+                color: 'var(--text-secondary)',
+                border: '1px solid var(--border-color)'
+              }}
+              onMouseEnter={(e) => {
+                if (!exportStatus) {
+                  e.currentTarget.style.background = 'var(--bg-secondary)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'var(--bg-tertiary)';
+              }}
             >
               <Download className="w-3 h-3" />
               JSON
@@ -195,11 +227,19 @@ export default function ScreenerView() {
 
       {/* Only show "No Results Found" after data has loaded and filters/search returned no matches */}
       {!isLoading && marketData.length > 0 && filteredData.length === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-          <div className="bg-gray-900 p-8 rounded-lg border border-gray-800 text-center">
+        <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(0, 0, 0, 0.5)' }}>
+          <div
+            className="p-8 rounded-lg text-center"
+            style={{
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border-color)'
+            }}
+          >
             <div className="text-4xl mb-4">🔍</div>
-            <h3 className="text-xl font-semibold text-white mb-2">No Results Found</h3>
-            <p className="text-gray-400">
+            <h3 className="text-xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+              No Results Found
+            </h3>
+            <p style={{ color: 'var(--text-secondary)' }}>
               {searchTerm
                 ? `No symbols matching "${searchTerm}"`
                 : 'No data matches the current filter'}

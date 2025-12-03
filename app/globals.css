@@ -7,14 +7,21 @@
   --bg-secondary: #16181f;
   --bg-tertiary: #1d1f28;
 
+  /* Surface variations */
+  --surface: #16181f;
+  --surface-elevated: #1d1f28;
+
   /* Borders - simple lines */
+  --border: #272a35;
   --border-color: #272a35;
   --border-hover: #34384a;
+  --border-light: #34384a;
 
   /* Text */
   --text-primary: #e4e6eb;
   --text-secondary: #9ca3af;
   --text-muted: #6b7280;
+  --text-tertiary: #6b7280;
 
   /* Data colors - standard terminal */
   --green: #22c55e;
@@ -22,7 +29,18 @@
   --blue: #3b82f6;
   --yellow: #eab308;
 
-  /* Subtle accents */
+  /* Semantic colors */
+  --success: #22c55e;
+  --success-light: rgba(34, 197, 94, 0.1);
+  --danger: #ef4444;
+  --danger-light: rgba(239, 68, 68, 0.1);
+  --warning: #eab308;
+  --warning-light: rgba(234, 179, 8, 0.1);
+  --info: #3b82f6;
+  --info-light: rgba(59, 130, 246, 0.1);
+
+  /* Primary accent */
+  --primary: #3b82f6;
   --accent: #3b82f6;
 }
 
@@ -74,10 +92,20 @@ body {
 
 /* Simple animations */
 @keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+.animate-fade-in {
   animation: fade-in 0.2s ease-out;
 }

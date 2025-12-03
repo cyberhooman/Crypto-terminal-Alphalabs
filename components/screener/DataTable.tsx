@@ -160,8 +160,11 @@ export default function DataTable({ data }: DataTableProps) {
   if (data.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-          No data
+        <div className="text-center">
+          <div className="text-2xl mb-2">📊</div>
+          <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+            No market data available
+          </div>
         </div>
       </div>
     );
