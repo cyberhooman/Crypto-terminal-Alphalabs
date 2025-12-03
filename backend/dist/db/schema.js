@@ -1,0 +1,49 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.createTablesSQL = void 0;
+exports.initializeDatabase = initializeDatabase;
+exports.cleanupOldAlerts = cleanupOldAlerts;
+exports.createTablesSQL = `
+-- Confluence Alerts Table
+CREATE TABLE IF NOT EXISTS confluence_alerts (
+  id VARCHAR(255) PRIMARY KEY,
+  symbol VARCHAR(50) NOT NULL,
+  setup_type VARCHAR(50) NOT NULL,
+  severity VARCHAR(20) NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  description TEXT NOT NULL,
+  signals JSONB NOT NULL,
+  confluence_score INTEGER NOT NULL,
+  timestamp BIGINT NOT NULL,
+  data JSONB NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes for better query performance
+CREATE INDEX IF NOT EXISTS idx_symbol ON confluence_alerts(symbol);
+CREATE INDEX IF NOT EXISTS idx_timestamp ON confluence_alerts(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_severity ON confluence_alerts(severity);
+CREATE INDEX IF NOT EXISTS idx_setup_type ON confluence_alerts(setup_type);
+`;
+async function initializeDatabase(pool) {
+    try {
+        console.log('Initializing database schema...');
+        await pool.query(exports.createTablesSQL);
+        console.log('✅ Database schema initialized successfully');
+    }
+    catch (error) {
+        console.error('❌ Error initializing database:', error);
+        throw error;
+    }
+}
+async function cleanupOldAlerts(pool) {
+    try {
+        const fortyEightHoursAgo = Date.now() - (48 * 60 * 60 * 1000);
+        const result = await pool.query('DELETE FROM confluence_alerts WHERE timestamp < $1 RETURNING id', [fortyEightHoursAgo]);
+        return result.rowCount || 0;
+    }
+    catch (error) {
+        console.error('Error cleaning up old alerts:', error);
+        return 0;
+    }
+}

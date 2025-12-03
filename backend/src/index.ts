@@ -4,6 +4,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { connectDatabase } from './db/client';
 import { SignalDetectionService } from './services/signalDetector';
+import { marketDataService } from './services/marketDataService';
 import { cleanupOldAlerts } from './db/schema';
 import router from './api/routes';
 import pool from './db/client';
@@ -54,8 +55,9 @@ app.get('/', (_req, res) => {
 // Routes
 app.use('/api', router);
 
-// Signal detection service instance
+// Service instances
 let signalDetector: SignalDetectionService | null = null;
+let marketDataStarted = false;
 
 // Startup with retry logic
 async function startServer() {
@@ -69,10 +71,16 @@ async function startServer() {
       console.log(`🎯 Frontend CORS: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
     });
 
+    // Start market data service (independent of database)
+    console.log('📊 Starting 24/7 market data service...');
+    await marketDataService.start();
+    marketDataStarted = true;
+    console.log('✅ Market data service online');
+
     // Try to connect to database with retries
     await connectWithRetry();
 
-    // Start signal detection
+    // Start signal detection (requires database)
     signalDetector = new SignalDetectionService();
     await signalDetector.start();
 
@@ -135,6 +143,9 @@ process.on('SIGTERM', () => {
   if (signalDetector) {
     signalDetector.stop();
   }
+  if (marketDataStarted) {
+    marketDataService.stop();
+  }
   pool.end();
   process.exit(0);
 });
@@ -143,6 +154,9 @@ process.on('SIGINT', () => {
   console.log('\n⏹️  SIGINT received, shutting down gracefully...');
   if (signalDetector) {
     signalDetector.stop();
+  }
+  if (marketDataStarted) {
+    marketDataService.stop();
   }
   pool.end();
   process.exit(0);

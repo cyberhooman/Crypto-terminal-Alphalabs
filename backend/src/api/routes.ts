@@ -3,6 +3,7 @@ import { Router, Request, Response } from 'express';
 import pool from '../db/client';
 import { cleanupOldAlerts } from '../db/schema';
 import axios from 'axios';
+import { marketDataService } from '../services/marketDataService';
 
 const router = Router();
 
@@ -10,7 +11,61 @@ const BINANCE_API = 'https://fapi.binance.com';
 
 // Health check
 router.get('/health', (req: Request, res: Response) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  const marketStats = marketDataService.getStats();
+  res.json({
+    status: marketDataService.isHealthy() ? 'ok' : 'degraded',
+    timestamp: new Date().toISOString(),
+    marketData: {
+      totalSymbols: marketStats.totalSymbols,
+      lastUpdate: marketStats.lastUpdate,
+      isRunning: marketStats.isRunning,
+    },
+  });
+});
+
+// Get all cached market data (fast - served from memory)
+router.get('/market/data', (req: Request, res: Response) => {
+  try {
+    const data = marketDataService.getAllData();
+    const stats = marketDataService.getStats();
+
+    res.json({
+      data,
+      stats,
+      timestamp: Date.now(),
+    });
+  } catch (error) {
+    console.error('Error fetching market data:', error);
+    res.status(500).json({ error: 'Failed to fetch market data' });
+  }
+});
+
+// Get specific symbol data
+router.get('/market/data/:symbol', (req: Request, res: Response) => {
+  try {
+    const { symbol } = req.params;
+    const data = marketDataService.getData(symbol.toUpperCase());
+
+    if (!data) {
+      return res.status(404).json({ error: 'Symbol not found' });
+    }
+
+    res.json({ data });
+  } catch (error) {
+    console.error(`Error fetching data for ${req.params.symbol}:`, error);
+    res.status(500).json({ error: 'Failed to fetch symbol data' });
+  }
+});
+
+// Get market data stats
+router.get('/market/stats', (req: Request, res: Response) => {
+  try {
+    const stats = marketDataService.getStats();
+    res.json(stats);
+  } catch (error) {
+    console.error('Error fetching market stats:', error);
+    res.status(500).json({ error: 'Failed to fetch stats' });
+  }
 });
 
 // Get all alerts (past 6 hours only, limit 50 for performance)
