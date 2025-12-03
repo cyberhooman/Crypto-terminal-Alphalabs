@@ -106,11 +106,22 @@ export default function DataTable({ data }: DataTableProps) {
       {
         accessorKey: 'openInterestValue',
         header: 'OI',
-        cell: ({ getValue }) => {
+        cell: ({ getValue, row }) => {
           const value = (getValue() as number) || 0;
-          if (value === 0) return (
-            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>-</span>
-          );
+          const oi = row.original.openInterest || 0;
+
+          if (value === 0 && oi === 0) {
+            return (
+              <span
+                className="text-sm"
+                style={{ color: 'var(--text-muted)' }}
+                title="Open Interest data unavailable for this symbol"
+              >
+                N/A
+              </span>
+            );
+          }
+
           return (
             <span className="font-mono text-sm" style={{ color: 'var(--text-secondary)' }}>
               ${formatNumber(value, 1)}

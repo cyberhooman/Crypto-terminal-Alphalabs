@@ -113,15 +113,17 @@ export class BinanceAPI {
   }
 
   // Get open interest for a specific symbol
-  async getOpenInterest(symbol: string): Promise<OpenInterest> {
+  async getOpenInterest(symbol: string, retryCount: number = 0): Promise<OpenInterest> {
+    const maxRetries = 2;
+
     try {
       const url = USE_BACKEND_PROXY
         ? `${this.backendURL}/openInterest/${symbol}`
         : `${this.baseURL}/fapi/v1/openInterest`;
 
       const response = USE_BACKEND_PROXY
-        ? await axios.get(url)
-        : await axios.get(url, { params: { symbol } });
+        ? await axios.get(url, { timeout: 5000 })
+        : await axios.get(url, { params: { symbol }, timeout: 5000 });
 
       return {
         symbol: response.data.symbol,
@@ -132,10 +134,10 @@ export class BinanceAPI {
     } catch (error) {
       // If backend proxy fails, try Binance directly as fallback
       if (USE_BACKEND_PROXY) {
-        console.warn(`⚠️ Backend proxy failed for OI ${symbol}, trying Binance directly...`);
         try {
           const response = await axios.get(`${this.baseURL}/fapi/v1/openInterest`, {
-            params: { symbol }
+            params: { symbol },
+            timeout: 5000
           });
           return {
             symbol: response.data.symbol,
@@ -143,9 +145,25 @@ export class BinanceAPI {
             openInterestValue: 0,
             timestamp: response.data.time || Date.now(),
           };
-        } catch (fallbackError) {
-          // If both fail, return default values instead of throwing
-          console.warn(`⚠️ Both OI requests failed for ${symbol}, using defaults`);
+        } catch (fallbackError: any) {
+          // Retry logic for rate limiting (429) or timeout errors
+          if (retryCount < maxRetries && (
+            fallbackError?.response?.status === 429 ||
+            fallbackError?.code === 'ECONNABORTED' ||
+            fallbackError?.code === 'ETIMEDOUT'
+          )) {
+            const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff: 1s, 2s
+            console.log(`🔄 Retrying OI fetch for ${symbol} after ${delay}ms (attempt ${retryCount + 1}/${maxRetries})...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return this.getOpenInterest(symbol, retryCount + 1);
+          }
+
+          // Log detailed error information
+          const errorMsg = fallbackError?.response?.data?.msg || fallbackError?.message || 'Unknown error';
+          const statusCode = fallbackError?.response?.status || 'N/A';
+          console.warn(`⚠️ OI fetch failed for ${symbol}: [${statusCode}] ${errorMsg}`);
+
+          // If both fail, return default values with error flag
           return {
             symbol,
             openInterest: 0,

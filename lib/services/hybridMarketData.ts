@@ -206,6 +206,7 @@ export class HybridMarketDataService {
       }
 
       console.log('✅ Initial market data loaded');
+      this.logDataSummary();
       console.log('📊 Starting background data fetch (CVD)...');
 
       // Initialize CVD for top 150 symbols by volume (async, non-blocking)
@@ -218,6 +219,7 @@ export class HybridMarketDataService {
       // Start CVD calculation in background
       this.initializeCVD(topSymbolsByVolume).then(() => {
         console.log('✅ CVD data ready');
+        this.logDataSummary();
         this.notifyUpdate();
       });
     } catch (error) {
@@ -304,14 +306,27 @@ export class HybridMarketDataService {
 
     let completed = 0;
     let failed = 0;
+    const failedSymbols: string[] = [];
 
     // Process in batches to avoid overwhelming API
-    const batchSize = 20;
+    const batchSize = 15; // Reduced from 20
     for (let i = 0; i < symbols.length; i += batchSize) {
       const batch = symbols.slice(i, i + batchSize);
+      const batchNumber = Math.floor(i / batchSize) + 1;
+      const totalBatches = Math.ceil(symbols.length / batchSize);
+
+      if (batchNumber % 5 === 0) {
+        console.log(`📦 CVD progress: ${batchNumber}/${totalBatches} batches (${completed} success, ${failed} failed)`);
+      }
 
       const results = await Promise.allSettled(batch.map(async (symbol) => {
         const trades: any[] = await binanceAPI.getAggTrades(symbol, 1000);
+
+        // Check if we got valid trades
+        if (!trades || trades.length === 0) {
+          return { symbol, success: false };
+        }
+
         const historicalTrades: Trade[] = trades.map((t: any) => ({
           price: t.price,
           quantity: t.quantity,
@@ -327,27 +342,38 @@ export class HybridMarketDataService {
           data.buyVolume = cvdData.buyVolume;
           data.sellVolume = cvdData.sellVolume;
           this.marketData.set(symbol, data);
+          return { symbol, success: true };
         }
-        return symbol;
+        return { symbol, success: false };
       }));
 
-      results.forEach(result => {
-        if (result.status === 'fulfilled') completed++;
-        else failed++;
+      results.forEach((result, idx) => {
+        if (result.status === 'fulfilled' && result.value.success) {
+          completed++;
+        } else {
+          failed++;
+          failedSymbols.push(batch[idx]);
+        }
       });
 
-      // Notify UI of progress
-      if (i % 60 === 0) {
+      // Notify UI of progress every 3 batches
+      if (i % 45 === 0) {
         this.notifyUpdate();
       }
 
-      // Small delay between batches
+      // Progressive delay to avoid sustained rate limiting
       if (i + batchSize < symbols.length) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        const delay = Math.min(100 + (batchNumber * 10), 300);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
 
     console.log(`✅ CVD initialized: ${completed} success, ${failed} failed`);
+    if (failedSymbols.length > 0 && failedSymbols.length <= 10) {
+      console.log(`⚠️ CVD failed for: ${failedSymbols.join(', ')}`);
+    } else if (failedSymbols.length > 10) {
+      console.log(`⚠️ CVD failed for ${failedSymbols.length} symbols`);
+    }
   }
 
   // Fetch OI from Binance for symbols not in oiMap
@@ -368,36 +394,61 @@ export class HybridMarketDataService {
 
     let successCount = 0;
     let failCount = 0;
+    const failedSymbols: string[] = [];
 
-    // Batch fetch with rate limiting
-    const batchSize = 15;
+    // Batch fetch with improved rate limiting
+    const batchSize = 10; // Reduced from 15 to avoid rate limits
     for (let i = 0; i < symbolsNeedingOI.length; i += batchSize) {
       const batch = symbolsNeedingOI.slice(i, i + batchSize);
+      const batchNumber = Math.floor(i / batchSize) + 1;
+      const totalBatches = Math.ceil(symbolsNeedingOI.length / batchSize);
+
+      console.log(`📦 Processing OI batch ${batchNumber}/${totalBatches} (${batch.length} symbols)...`);
 
       const results = await Promise.allSettled(batch.map(async (symbol: string) => {
         const oi = await binanceAPI.getOpenInterest(symbol);
         const ticker = tickers.find((t: any) => t.symbol === symbol);
         const price = ticker?.price || 0;
 
-        oiMap.set(symbol, {
-          openInterest: oi.openInterest,
-          openInterestValue: oi.openInterest * price,
-        });
-        return symbol;
+        // Only count as success if we got actual data (not zeros)
+        if (oi.openInterest > 0) {
+          oiMap.set(symbol, {
+            openInterest: oi.openInterest,
+            openInterestValue: oi.openInterest * price,
+          });
+          return { symbol, success: true };
+        } else {
+          // Still set it to avoid refetching, but mark as failed
+          oiMap.set(symbol, {
+            openInterest: 0,
+            openInterestValue: 0,
+          });
+          return { symbol, success: false };
+        }
       }));
 
-      results.forEach(result => {
-        if (result.status === 'fulfilled') successCount++;
-        else failCount++;
+      results.forEach((result, idx) => {
+        if (result.status === 'fulfilled' && result.value.success) {
+          successCount++;
+        } else {
+          failCount++;
+          failedSymbols.push(batch[idx]);
+        }
       });
 
-      // Small delay to avoid rate limiting
+      // Progressive delay: longer delays after multiple batches to avoid sustained rate limiting
       if (i + batchSize < symbolsNeedingOI.length) {
-        await new Promise(resolve => setTimeout(resolve, 50));
+        const delay = Math.min(100 + (batchNumber * 20), 500); // 100ms to 500ms
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
 
     console.log(`✅ Binance OI: ${successCount} success, ${failCount} failed (total: ${oiMap.size})`);
+    if (failedSymbols.length > 0 && failedSymbols.length <= 10) {
+      console.log(`⚠️ Failed symbols: ${failedSymbols.join(', ')}`);
+    } else if (failedSymbols.length > 10) {
+      console.log(`⚠️ Failed ${failedSymbols.length} symbols (showing first 10): ${failedSymbols.slice(0, 10).join(', ')}...`);
+    }
   }
 
   private startPeriodicUpdates(): void {
@@ -505,6 +556,28 @@ export class HybridMarketDataService {
 
   isUsingCoinGlass(): boolean {
     return this.useCoinGlass;
+  }
+
+  private logDataSummary(): void {
+    const allData = Array.from(this.marketData.values());
+    const totalSymbols = allData.length;
+
+    const withOI = allData.filter(d => d.openInterest > 0).length;
+    const withCVD = allData.filter(d => d.cvd !== 0 || d.buyVolume > 0).length;
+    const withFunding = allData.filter(d => d.fundingRate !== 0).length;
+
+    const oiPercent = ((withOI / totalSymbols) * 100).toFixed(1);
+    const cvdPercent = ((withCVD / totalSymbols) * 100).toFixed(1);
+    const fundingPercent = ((withFunding / totalSymbols) * 100).toFixed(1);
+
+    console.log('');
+    console.log('📊 === DATA QUALITY SUMMARY ===');
+    console.log(`Total Symbols: ${totalSymbols}`);
+    console.log(`✅ Open Interest: ${withOI}/${totalSymbols} (${oiPercent}%)`);
+    console.log(`✅ CVD Data: ${withCVD}/${totalSymbols} (${cvdPercent}%)`);
+    console.log(`✅ Funding Rates: ${withFunding}/${totalSymbols} (${fundingPercent}%)`);
+    console.log('============================');
+    console.log('');
   }
 
   destroy(): void {
