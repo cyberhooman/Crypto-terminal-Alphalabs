@@ -37,27 +37,27 @@ export class MarketDataService {
       // Initial data load
       await this.fetchAllData();
 
-      // Update prices & funding every 2 seconds
+      // Update prices & funding every 10 seconds (reduced from 2s to avoid rate limits)
       this.updateInterval = setInterval(async () => {
         try {
           await this.updatePricesAndFunding();
         } catch (error) {
           console.error('Error updating prices:', error);
         }
-      }, 2000);
+      }, 10000);
 
-      // Update OI every 30 seconds (more expensive)
+      // Update OI every 2 minutes (increased from 30s to avoid rate limits)
       this.oiUpdateInterval = setInterval(async () => {
         try {
           await this.updateOpenInterest();
         } catch (error) {
           console.error('Error updating OI:', error);
         }
-      }, 30000);
+      }, 120000);
 
       console.log('✅ Market data service started');
-      console.log('   - Price updates: every 2s');
-      console.log('   - OI updates: every 30s');
+      console.log('   - Price updates: every 10s');
+      console.log('   - OI updates: every 2min');
       this.logStats();
     } catch (error) {
       console.error('❌ Failed to start market data service:', error);
@@ -80,43 +80,63 @@ export class MarketDataService {
     console.log('⏹️  Market data service stopped');
   }
 
-  // Fetch with automatic endpoint fallback
-  private async fetchWithFallback(path: string, params?: any): Promise<any> {
-    const maxAttempts = API_ENDPOINTS.length;
+  // Fetch with automatic endpoint fallback and exponential backoff
+  private async fetchWithFallback(path: string, params?: any, retryCount = 0): Promise<any> {
+    const maxRetries = 3;
+    const endpoint = API_ENDPOINTS[currentEndpointIndex];
 
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const endpoint = API_ENDPOINTS[currentEndpointIndex];
+    try {
+      const response = await axios.get(`${endpoint}${path}`, {
+        params,
+        timeout: 15000, // Increased from 10s to 15s
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; CryptoTerminal/1.0)',
+        },
+      });
+      return response.data;
+    } catch (error: any) {
+      const status = error?.response?.status;
+      const isGeoBlocked = status === 451 || status === 403;
+      const isRateLimited = status === 429 || status === 418;
+      const isTimeout = error?.code === 'ECONNABORTED' || error?.code === 'ETIMEDOUT';
 
-      try {
-        const response = await axios.get(`${endpoint}${path}`, {
-          params,
-          timeout: 10000,
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (compatible; CryptoTerminal/1.0)',
-          },
-        });
-        return response.data;
-      } catch (error: any) {
-        const status = error?.response?.status;
-        const isGeoBlocked = status === 451 || status === 403;
-        const isRateLimited = status === 429 || status === 418;
+      // Handle rate limiting with exponential backoff
+      if (isRateLimited && retryCount < maxRetries) {
+        const delay = Math.min(Math.pow(2, retryCount) * 2000, 10000); // 2s, 4s, 8s, max 10s
+        console.log(`⚠️  Rate limited (${status}), waiting ${delay / 1000}s before retry ${retryCount + 1}/${maxRetries}...`);
 
-        if (isGeoBlocked || isRateLimited) {
-          console.log(`⚠️  Endpoint ${currentEndpointIndex + 1} issue (${status}), rotating...`);
-          currentEndpointIndex = (currentEndpointIndex + 1) % API_ENDPOINTS.length;
+        // Rotate endpoint
+        currentEndpointIndex = (currentEndpointIndex + 1) % API_ENDPOINTS.length;
 
-          if (isRateLimited && attempt < maxAttempts - 1) {
-            // Wait before retry on rate limit
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
-        } else if (attempt === maxAttempts - 1) {
-          console.error(`❌ All endpoints failed for ${path}:`, error.message);
-          throw error;
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return this.fetchWithFallback(path, params, retryCount + 1);
+      }
+
+      // Handle geo-blocking
+      if (isGeoBlocked) {
+        console.log(`⚠️  Endpoint ${currentEndpointIndex + 1} geo-blocked (${status}), rotating...`);
+        currentEndpointIndex = (currentEndpointIndex + 1) % API_ENDPOINTS.length;
+
+        if (retryCount < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return this.fetchWithFallback(path, params, retryCount + 1);
         }
       }
-    }
 
-    throw new Error('All API endpoints failed');
+      // Handle timeouts
+      if (isTimeout && retryCount < maxRetries) {
+        console.log(`⚠️  Request timeout, retrying ${retryCount + 1}/${maxRetries}...`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        return this.fetchWithFallback(path, params, retryCount + 1);
+      }
+
+      // If all retries exhausted, throw error
+      if (retryCount >= maxRetries) {
+        console.error(`❌ Max retries reached for ${path}`);
+      }
+
+      throw error;
+    }
   }
 
   // Initial data fetch - load everything
@@ -231,13 +251,13 @@ export class MarketDataService {
     }
   }
 
-  // Update open interest (slower, runs every 30s)
+  // Update open interest (slower, runs every 2 minutes)
   private async updateOpenInterest(): Promise<void> {
     try {
-      // Get top 200 symbols by volume
+      // Get top 100 symbols by volume (reduced from 200 to avoid rate limits)
       const topSymbols = Array.from(this.marketData.values())
         .sort((a, b) => b.quoteVolume - a.quoteVolume)
-        .slice(0, 200)
+        .slice(0, 100)
         .map(d => d.symbol);
 
       console.log(`📈 Updating OI for top ${topSymbols.length} symbols...`);
@@ -245,8 +265,8 @@ export class MarketDataService {
       let updated = 0;
       let failed = 0;
 
-      // Batch process: 10 symbols at a time
-      const batchSize = 10;
+      // Batch process: 5 symbols at a time (reduced from 10)
+      const batchSize = 5;
       for (let i = 0; i < topSymbols.length; i += batchSize) {
         const batch = topSymbols.slice(i, i + batchSize);
 
@@ -269,9 +289,9 @@ export class MarketDataService {
           }
         });
 
-        // Small delay to avoid rate limiting
+        // Longer delay to avoid rate limiting (increased from 100ms to 500ms)
         if (i + batchSize < topSymbols.length) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
       }
 
