@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Bell, Settings, Activity } from 'lucide-react';
+import { Zap, Bell, Settings, Activity, Power } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useMarketStore } from '@/stores/useMarketStore';
 
@@ -17,9 +17,17 @@ const AlertsView = dynamic(() => import('@/components/alerts/AlertsView'), {
 
 function LoadingState() {
   return (
-    <div className="flex items-center justify-center h-full">
-      <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-        Loading...
+    <div className="flex items-center justify-center h-full terminal-grid">
+      <div className="text-center animate-flicker-in">
+        <div className="inline-block px-6 py-3 mb-4" style={{
+          border: '2px solid var(--primary)',
+          background: 'var(--bg-secondary)',
+          boxShadow: '0 0 20px var(--accent-glow)',
+        }}>
+          <div className="font-mono text-sm font-bold" style={{ color: 'var(--accent)' }}>
+            INITIALIZING TERMINAL...
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -31,40 +39,65 @@ export default function Home() {
 
   return (
     <div className="flex flex-col h-screen" style={{ background: 'var(--bg-primary)' }}>
-      {/* Header */}
+      {/* Neo-Brutalist Header */}
       <header
-        className="border-b flex items-center justify-between px-4 h-12"
+        className="border-b-2 flex items-center justify-between px-6 h-14 animate-slide-in-left"
         style={{
-          borderColor: 'var(--border-color)',
-          background: 'var(--bg-secondary)'
+          borderColor: 'var(--border-accent)',
+          background: 'var(--bg-secondary)',
+          boxShadow: '0 2px 0 var(--accent-glow)'
         }}
       >
-        <div className="flex items-center gap-3">
-          <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-            Crypto Terminal
+        {/* Terminal Branding */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 px-3 py-1.5"
+            style={{
+              border: '2px solid var(--primary)',
+              background: 'var(--bg-tertiary)',
+              boxShadow: '0 0 15px var(--accent-glow)'
+            }}
+          >
+            <Zap className="w-5 h-5 animate-pulse-glow" style={{ color: 'var(--accent)' }} />
+            <div className="font-display text-base font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
+              ALPHALABS
+            </div>
           </div>
-          <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            Futures
+          <div className="flex items-center gap-2">
+            <div className="font-mono text-xs font-semibold px-2 py-1" style={{
+              color: 'var(--text-secondary)',
+              border: '1px solid var(--border)',
+              background: 'var(--bg-tertiary)'
+            }}>
+              FUTURES
+            </div>
+            <div className="font-mono text-xs font-semibold px-2 py-1" style={{
+              color: 'var(--accent)',
+              border: '1px solid var(--primary)',
+              background: 'var(--bg-tertiary)'
+            }}>
+              LIVE
+            </div>
           </div>
         </div>
 
-        <nav className="flex items-center gap-1">
+        {/* Sharp Navigation */}
+        <nav className="flex items-center gap-2">
           <NavButton
-            icon={<Activity size={16} />}
-            label="Screener"
+            icon={<Activity size={18} />}
+            label="SCREENER"
             active={view === 'screener'}
             onClick={() => setView('screener')}
           />
           <NavButton
-            icon={<Bell size={16} />}
-            label="Alerts"
+            icon={<Bell size={18} />}
+            label="ALERTS"
             badge={alerts.length}
             active={view === 'alerts'}
             onClick={() => setView('alerts')}
           />
           <NavButton
-            icon={<Settings size={16} />}
-            label="Settings"
+            icon={<Settings size={18} />}
+            label="SETTINGS"
             active={view === 'settings'}
             onClick={() => setView('settings')}
           />

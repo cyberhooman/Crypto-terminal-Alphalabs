@@ -22,35 +22,35 @@ export function useMarketData() {
     const initializeData = async () => {
       try {
         setLoading(true);
-        console.log('🔄 Connecting to hybrid market data service (CoinGlass + Binance)...');
+        console.log('🚀 Connecting to backend (data pre-calculated 24/7)...');
 
         // Dynamic import to prevent build-time execution
-        const { hybridMarketDataService } = await import('@/lib/services/hybridMarketData');
+        const { backendMarketDataService } = await import('@/lib/services/backendMarketData');
 
-        await hybridMarketDataService.initialize();
-        console.log('✅ Hybrid market data service initialized');
+        await backendMarketDataService.initialize();
+        console.log('✅ Backend market data service connected');
 
         // Subscribe to updates
-        const unsubscribe = hybridMarketDataService.onUpdate((dataMap) => {
+        const unsubscribe = backendMarketDataService.onUpdate((dataMap) => {
           // Convert Map to Array for store
           const dataArray = Array.from(dataMap.values());
-          console.log(`📊 Received ${dataArray.length} market data items`);
+          console.log(`📊 Received ${dataArray.length} market data items from backend`);
           setMarketData(dataArray);
         });
 
-        // Initial data load
-        const initialData = hybridMarketDataService.getAllData();
-        console.log(`📈 Initial data loaded: ${initialData.length} items`);
+        // Initial data load (instant - from backend memory)
+        const initialData = backendMarketDataService.getAllData();
+        console.log(`⚡ Instant load: ${initialData.length} symbols (pre-calculated)`);
 
         if (initialData.length > 0) {
           setMarketData(initialData);
           setLoading(false);
-          console.log('✅ Market data ready!');
+          console.log('✅ Market data ready instantly!');
         } else {
-          console.warn('⚠️ No initial data received, waiting for updates...');
+          console.warn('⚠️ No initial data from backend, waiting...');
           // Set loading to false anyway to show empty state
           setTimeout(() => {
-            const retryData = hybridMarketDataService.getAllData();
+            const retryData = backendMarketDataService.getAllData();
             if (retryData.length > 0) {
               setMarketData(retryData);
               console.log(`✅ Data received after delay: ${retryData.length} items`);
@@ -63,7 +63,7 @@ export function useMarketData() {
           unsubscribe();
         };
       } catch (error) {
-        console.error('❌ Error initializing market data:', error);
+        console.error('❌ Error connecting to backend:', error);
         console.error('Error details:', error instanceof Error ? error.message : String(error));
         setLoading(false);
       }
@@ -74,8 +74,8 @@ export function useMarketData() {
     return () => {
       if (isInitialized.current) {
         // Dynamic import for cleanup
-        import('@/lib/services/hybridMarketData').then(({ hybridMarketDataService }) => {
-          hybridMarketDataService.destroy();
+        import('@/lib/services/backendMarketData').then(({ backendMarketDataService }) => {
+          backendMarketDataService.destroy();
         });
         isInitialized.current = false;
       }

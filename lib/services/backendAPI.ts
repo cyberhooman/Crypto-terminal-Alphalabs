@@ -83,6 +83,41 @@ export class BackendAPI {
       return false;
     }
   }
+
+  // Fetch all market data from backend (pre-calculated, instant)
+  async getMarketData(): Promise<any> {
+    try {
+      const response = await axios.get(`${this.baseURL}/market/data`, {
+        timeout: 10000,
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching market data from backend:', error);
+      throw error;
+    }
+  }
+
+  // Fetch specific symbol data
+  async getSymbolData(symbol: string): Promise<any> {
+    try {
+      const response = await axios.get(`${this.baseURL}/market/data/${symbol}`);
+      return response.data.data;
+    } catch (error) {
+      console.error(`Error fetching data for ${symbol}:`, error);
+      return null;
+    }
+  }
+
+  // Get market stats
+  async getMarketStats(): Promise<any> {
+    try {
+      const response = await axios.get(`${this.baseURL}/market/stats`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching market stats:', error);
+      return null;
+    }
+  }
 }
 
 export const backendAPI = new BackendAPI();
