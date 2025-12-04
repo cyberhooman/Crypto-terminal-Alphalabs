@@ -207,18 +207,24 @@ export class HybridMarketDataService {
 
       console.log('✅ Initial market data loaded');
       this.logDataSummary();
-      console.log('📊 Starting background data fetch (CVD)...');
+      console.log('📊 Starting background data fetch (CVD for ALL symbols)...');
 
-      // Initialize CVD for top 150 symbols by volume (async, non-blocking)
-      const topSymbolsByVolume = tickers
+      // Initialize CVD for ALL symbols by volume (async, non-blocking)
+      // Sort by volume to load most important coins first
+      const allSymbolsByVolume = tickers
         .filter((t: any) => this.symbols.includes(t.symbol))
         .sort((a: any, b: any) => b.quoteVolume - a.quoteVolume)
-        .slice(0, 150)
         .map((t: any) => t.symbol);
 
-      // Start CVD calculation in background
-      this.initializeCVD(topSymbolsByVolume).then(() => {
-        console.log('✅ CVD data ready');
+      console.log(`🔄 Will load CVD for ${allSymbolsByVolume.length} symbols in background`);
+
+      // Start CVD calculation in background for ALL symbols
+      this.initializeCVD(allSymbolsByVolume).then(() => {
+        console.log('✅ CVD data ready for all symbols');
+        this.logDataSummary();
+        this.notifyUpdate();
+      }).catch((error) => {
+        console.warn('⚠️ Some CVD data failed to load:', error);
         this.logDataSummary();
         this.notifyUpdate();
       });
@@ -308,43 +314,51 @@ export class HybridMarketDataService {
     let failed = 0;
     const failedSymbols: string[] = [];
 
-    // Process in batches to avoid overwhelming API
-    const batchSize = 15; // Reduced from 20
+    // Process in batches with progressive delay to avoid rate limits
+    const batchSize = 10; // Smaller batches for reliability
+
     for (let i = 0; i < symbols.length; i += batchSize) {
       const batch = symbols.slice(i, i + batchSize);
       const batchNumber = Math.floor(i / batchSize) + 1;
       const totalBatches = Math.ceil(symbols.length / batchSize);
 
-      if (batchNumber % 5 === 0) {
-        console.log(`📦 CVD progress: ${batchNumber}/${totalBatches} batches (${completed} success, ${failed} failed)`);
+      // Log progress every 10 batches or for the last batch
+      if (batchNumber % 10 === 0 || i + batchSize >= symbols.length) {
+        const percentComplete = Math.round((i / symbols.length) * 100);
+        console.log(`📦 CVD progress: ${percentComplete}% (${completed}/${symbols.length} symbols, ${failed} failed)`);
+        this.notifyUpdate(); // Update UI with partial data
       }
 
       const results = await Promise.allSettled(batch.map(async (symbol) => {
-        const trades: any[] = await binanceAPI.getAggTrades(symbol, 1000);
+        try {
+          const trades: any[] = await binanceAPI.getAggTrades(symbol, 500); // Reduced from 1000 for speed
 
-        // Check if we got valid trades
-        if (!trades || trades.length === 0) {
+          // Check if we got valid trades
+          if (!trades || trades.length === 0) {
+            return { symbol, success: false };
+          }
+
+          const historicalTrades: Trade[] = trades.map((t: any) => ({
+            price: t.price,
+            quantity: t.quantity,
+            timestamp: t.timestamp,
+            isBuyerMaker: t.isBuyerMaker,
+          }));
+
+          const cvdData = cvdCalculator.calculateHistoricalCVD(symbol, historicalTrades);
+
+          const data = this.marketData.get(symbol);
+          if (data) {
+            data.cvd = cvdData.cvd;
+            data.buyVolume = cvdData.buyVolume;
+            data.sellVolume = cvdData.sellVolume;
+            this.marketData.set(symbol, data);
+            return { symbol, success: true };
+          }
           return { symbol, success: false };
+        } catch (error) {
+          return { symbol, success: false, error };
         }
-
-        const historicalTrades: Trade[] = trades.map((t: any) => ({
-          price: t.price,
-          quantity: t.quantity,
-          timestamp: t.timestamp,
-          isBuyerMaker: t.isBuyerMaker,
-        }));
-
-        const cvdData = cvdCalculator.calculateHistoricalCVD(symbol, historicalTrades);
-
-        const data = this.marketData.get(symbol);
-        if (data) {
-          data.cvd = cvdData.cvd;
-          data.buyVolume = cvdData.buyVolume;
-          data.sellVolume = cvdData.sellVolume;
-          this.marketData.set(symbol, data);
-          return { symbol, success: true };
-        }
-        return { symbol, success: false };
       }));
 
       results.forEach((result, idx) => {
@@ -378,11 +392,10 @@ export class HybridMarketDataService {
 
   // Fetch OI from Binance for symbols not in oiMap
   private async fetchBinanceOI(oiMap: Map<string, any>, tickers: any[]): Promise<void> {
-    // Sort by volume and get top 200 symbols that don't have OI data
+    // Get ALL symbols that don't have OI data, sorted by volume
     const symbolsNeedingOI = tickers
       .filter((t: any) => this.symbols.includes(t.symbol) && !oiMap.has(t.symbol))
       .sort((a: any, b: any) => b.quoteVolume - a.quoteVolume)
-      .slice(0, 200)
       .map((t: any) => t.symbol);
 
     if (symbolsNeedingOI.length === 0) {
@@ -390,7 +403,7 @@ export class HybridMarketDataService {
       return;
     }
 
-    console.log(`📡 Fetching OI for ${symbolsNeedingOI.length} symbols from Binance...`);
+    console.log(`📡 Fetching OI for ${symbolsNeedingOI.length} symbols from Binance (fallback)...`);
 
     let successCount = 0;
     let failCount = 0;
