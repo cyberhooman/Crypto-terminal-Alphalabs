@@ -218,35 +218,43 @@ export default function ScreenerView() {
         </div>
       </div>
 
-      {/* Data Table */}
-      <div className="flex-1 overflow-hidden">
-        <DataTable
-          data={filteredData}
-        />
-      </div>
-
-      {/* Only show "No Results Found" after data has loaded and filters/search returned no matches */}
-      {!isLoading && marketData.length > 0 && filteredData.length === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(0, 0, 0, 0.5)' }}>
-          <div
-            className="p-8 rounded-lg text-center"
-            style={{
-              background: 'var(--bg-secondary)',
-              border: '1px solid var(--border-color)'
-            }}
-          >
-            <div className="text-4xl mb-4">🔍</div>
-            <h3 className="text-xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
-              No Results Found
-            </h3>
-            <p style={{ color: 'var(--text-secondary)' }}>
-              {searchTerm
-                ? `No symbols matching "${searchTerm}"`
-                : 'No data matches the current filter'}
-            </p>
+      {/* Data Table or No Results Message */}
+      <div className="flex-1 overflow-hidden relative">
+        {filteredData.length > 0 ? (
+          <DataTable data={filteredData} />
+        ) : marketData.length > 0 ? (
+          /* Show "No Results Found" only when we have data but filters returned nothing */
+          <div className="flex items-center justify-center h-full">
+            <div
+              className="p-8 text-center"
+              style={{
+                background: 'var(--bg-secondary)',
+                border: '2px solid var(--border)',
+              }}
+            >
+              <div className="text-4xl mb-4">🔍</div>
+              <h3 className="font-display text-xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
+                NO RESULTS FOUND
+              </h3>
+              <p className="font-mono text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
+                {searchTerm
+                  ? `No symbols matching "${searchTerm}"`
+                  : activeFilter
+                  ? `No data matches filter "${activeFilter.name}"`
+                  : 'No data matches the current filter'}
+              </p>
+              {activeFilter && (
+                <p className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
+                  Try removing the filter or wait for more data to load
+                </p>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        ) : (
+          /* DataTable will show its own "NO MARKET DATA" when marketData is empty */
+          <DataTable data={filteredData} />
+        )}
+      </div>
     </div>
   );
 }
