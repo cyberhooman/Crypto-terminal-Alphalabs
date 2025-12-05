@@ -129,39 +129,89 @@ export class SignalDetectionService {
       const fundingRates = await this.fetchWithFallback('/fapi/v1/premiumIndex');
       const fundingMap = new Map<string, any>(fundingRates.map((f: any) => [f.symbol, f]));
 
-      // Combine data (filter USDT pairs only)
-      const marketData: MarketData[] = tickers
+      // Filter and sort USDT pairs by volume to get top pairs for OI fetch
+      const usdtTickers = tickers
         .filter((t: any) => t.symbol.endsWith('USDT'))
-        .map((ticker: any) => {
-          const funding = fundingMap.get(ticker.symbol) as any;
+        .sort((a: any, b: any) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume));
 
-          return {
-            symbol: ticker.symbol,
-            price: parseFloat(ticker.lastPrice),
-            priceChange: parseFloat(ticker.priceChange),
-            priceChangePercent: parseFloat(ticker.priceChangePercent),
-            volume: parseFloat(ticker.volume),
-            quoteVolume: parseFloat(ticker.quoteVolume),
-            fundingRate: funding ? parseFloat(funding.lastFundingRate) : 0,
-            nextFundingTime: funding ? funding.nextFundingTime : 0,
-            openInterest: 0, // Will be fetched separately for top symbols
-            openInterestValue: 0,
-            cvd: 0, // Will be calculated separately
-            buyVolume: 0,
-            sellVolume: 0,
-            high: parseFloat(ticker.highPrice),
-            low: parseFloat(ticker.lowPrice),
-            trades: parseInt(ticker.count),
-            lastUpdate: Date.now(),
-          };
-        });
+      // Fetch OI for top 50 symbols (the ones that matter for signals)
+      const topSymbols = usdtTickers.slice(0, 50).map((t: any) => t.symbol);
+      const oiMap = await this.fetchOpenInterestBatch(topSymbols);
 
-      console.log(`📊 Fetched ${marketData.length} market pairs`);
+      // Calculate simple CVD from taker buy/sell volumes
+      const marketData: MarketData[] = usdtTickers.map((ticker: any) => {
+        const funding = fundingMap.get(ticker.symbol) as any;
+        const oi = oiMap.get(ticker.symbol);
+        const price = parseFloat(ticker.lastPrice);
+
+        // Calculate CVD from taker buy volume difference
+        const takerBuyVolume = parseFloat(ticker.takerBuyBaseAssetVolume || 0);
+        const totalVolume = parseFloat(ticker.volume);
+        const takerSellVolume = totalVolume - takerBuyVolume;
+        const cvd = takerBuyVolume - takerSellVolume;
+
+        return {
+          symbol: ticker.symbol,
+          price: price,
+          priceChange: parseFloat(ticker.priceChange),
+          priceChangePercent: parseFloat(ticker.priceChangePercent),
+          volume: totalVolume,
+          quoteVolume: parseFloat(ticker.quoteVolume),
+          fundingRate: funding ? parseFloat(funding.lastFundingRate) : 0,
+          nextFundingTime: funding ? funding.nextFundingTime : 0,
+          openInterest: oi?.openInterest || 0,
+          openInterestValue: oi ? oi.openInterest * price : 0,
+          cvd: cvd,
+          buyVolume: takerBuyVolume,
+          sellVolume: takerSellVolume,
+          high: parseFloat(ticker.highPrice),
+          low: parseFloat(ticker.lowPrice),
+          trades: parseInt(ticker.count),
+          lastUpdate: Date.now(),
+        };
+      });
+
+      const withOI = marketData.filter(d => d.openInterest > 0).length;
+      const withCVD = marketData.filter(d => d.cvd !== 0).length;
+      console.log(`📊 Fetched ${marketData.length} pairs (OI: ${withOI}, CVD: ${withCVD})`);
       return marketData;
     } catch (error) {
       console.error('❌ All API endpoints failed:', error);
       return [];
     }
+  }
+
+  // Fetch OI for multiple symbols in parallel batches
+  private async fetchOpenInterestBatch(symbols: string[]): Promise<Map<string, { openInterest: number }>> {
+    const oiMap = new Map<string, { openInterest: number }>();
+    const batchSize = 10;
+
+    for (let i = 0; i < symbols.length; i += batchSize) {
+      const batch = symbols.slice(i, i + batchSize);
+      const results = await Promise.allSettled(
+        batch.map(async (symbol) => {
+          try {
+            const data = await this.fetchWithFallback(`/fapi/v1/openInterest?symbol=${symbol}`);
+            return { symbol, openInterest: parseFloat(data.openInterest) };
+          } catch {
+            return { symbol, openInterest: 0 };
+          }
+        })
+      );
+
+      results.forEach((result) => {
+        if (result.status === 'fulfilled' && result.value.openInterest > 0) {
+          oiMap.set(result.value.symbol, { openInterest: result.value.openInterest });
+        }
+      });
+
+      // Small delay between batches
+      if (i + batchSize < symbols.length) {
+        await new Promise(r => setTimeout(r, 100));
+      }
+    }
+
+    return oiMap;
   }
 
   // Store alert in database

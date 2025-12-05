@@ -149,20 +149,25 @@ class MarketDataService {
                 const funding = fundingMap.get(symbol);
                 if (!ticker)
                     continue;
+                // Calculate CVD from taker buy/sell volumes (24hr)
+                const totalVolume = parseFloat(ticker.volume);
+                const takerBuyVolume = parseFloat(ticker.takerBuyBaseAssetVolume || 0);
+                const takerSellVolume = totalVolume - takerBuyVolume;
+                const cvd = takerBuyVolume - takerSellVolume;
                 const marketData = {
                     symbol,
                     price: parseFloat(ticker.lastPrice),
                     priceChange: parseFloat(ticker.priceChange),
                     priceChangePercent: parseFloat(ticker.priceChangePercent),
-                    volume: parseFloat(ticker.volume),
+                    volume: totalVolume,
                     quoteVolume: parseFloat(ticker.quoteVolume),
                     fundingRate: funding ? parseFloat(funding.lastFundingRate) : 0,
                     nextFundingTime: funding ? funding.nextFundingTime : Date.now() + 28800000,
                     openInterest: 0,
                     openInterestValue: 0,
-                    cvd: 0,
-                    buyVolume: 0,
-                    sellVolume: 0,
+                    cvd: cvd,
+                    buyVolume: takerBuyVolume,
+                    sellVolume: takerSellVolume,
                     high: parseFloat(ticker.highPrice),
                     low: parseFloat(ticker.lowPrice),
                     trades: parseInt(ticker.count),
@@ -196,15 +201,27 @@ class MarketDataService {
                 if (!data)
                     continue;
                 const funding = fundingMap.get(ticker.symbol);
+                // Calculate CVD from taker buy/sell volumes
+                const totalVolume = parseFloat(ticker.volume);
+                const takerBuyVolume = parseFloat(ticker.takerBuyBaseAssetVolume || 0);
+                const takerSellVolume = totalVolume - takerBuyVolume;
+                const cvd = takerBuyVolume - takerSellVolume;
                 data.price = parseFloat(ticker.lastPrice);
                 data.priceChange = parseFloat(ticker.priceChange);
                 data.priceChangePercent = parseFloat(ticker.priceChangePercent);
-                data.volume = parseFloat(ticker.volume);
+                data.volume = totalVolume;
                 data.quoteVolume = parseFloat(ticker.quoteVolume);
                 data.high = parseFloat(ticker.highPrice);
                 data.low = parseFloat(ticker.lowPrice);
                 data.trades = parseInt(ticker.count);
+                data.cvd = cvd;
+                data.buyVolume = takerBuyVolume;
+                data.sellVolume = takerSellVolume;
                 data.lastUpdate = Date.now();
+                // Also update OI value with current price (OI itself updated separately)
+                if (data.openInterest > 0) {
+                    data.openInterestValue = data.openInterest * data.price;
+                }
                 if (funding) {
                     data.fundingRate = parseFloat(funding.lastFundingRate);
                     data.nextFundingTime = funding.nextFundingTime;
@@ -296,10 +313,12 @@ class MarketDataService {
     getStats() {
         const data = Array.from(this.marketData.values());
         const withOI = data.filter(d => d.openInterest > 0).length;
+        const withCVD = data.filter(d => d.cvd !== 0).length;
         const withFunding = data.filter(d => d.fundingRate !== 0).length;
         return {
             totalSymbols: data.length,
             withOI,
+            withCVD,
             withFunding,
             lastUpdate: this.lastUpdate,
             uptime: this.isRunning ? Date.now() - this.lastUpdate : 0,
@@ -312,6 +331,7 @@ class MarketDataService {
         console.log('📊 Market Data Statistics:');
         console.log(`   - Total symbols: ${stats.totalSymbols}`);
         console.log(`   - With OI: ${stats.withOI} (${((stats.withOI / stats.totalSymbols) * 100).toFixed(1)}%)`);
+        console.log(`   - With CVD: ${stats.withCVD} (${((stats.withCVD / stats.totalSymbols) * 100).toFixed(1)}%)`);
         console.log(`   - With funding: ${stats.withFunding} (${((stats.withFunding / stats.totalSymbols) * 100).toFixed(1)}%)`);
     }
     // Check if service is healthy

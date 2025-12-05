@@ -22,16 +22,16 @@ export function useMarketData() {
     const initializeData = async () => {
       try {
         setLoading(true);
-        console.log('🔄 Connecting to hybrid market data service (CoinGlass + Binance)...');
+        console.log('🔄 Connecting to Simple Market Data Service (Binance only)...');
 
         // Dynamic import to prevent build-time execution
-        const { hybridMarketDataService } = await import('@/lib/services/hybridMarketData');
+        const { simpleMarketDataService } = await import('@/lib/services/simpleMarketData');
 
-        await hybridMarketDataService.initialize();
-        console.log('✅ Hybrid market data service initialized');
+        await simpleMarketDataService.initialize();
+        console.log('✅ Simple market data service initialized');
 
         // Subscribe to updates
-        const unsubscribe = hybridMarketDataService.onUpdate((dataMap) => {
+        const unsubscribe = simpleMarketDataService.onUpdate((dataMap) => {
           // Convert Map to Array for store
           const dataArray = Array.from(dataMap.values());
           console.log(`📊 Received ${dataArray.length} market data items`);
@@ -39,7 +39,7 @@ export function useMarketData() {
         });
 
         // Initial data load
-        const initialData = hybridMarketDataService.getAllData();
+        const initialData = simpleMarketDataService.getAllData();
         console.log(`📈 Initial data loaded: ${initialData.length} items`);
 
         if (initialData.length > 0) {
@@ -50,7 +50,7 @@ export function useMarketData() {
           console.warn('⚠️ No initial data received, waiting for updates...');
           // Set loading to false anyway to show empty state
           setTimeout(() => {
-            const retryData = hybridMarketDataService.getAllData();
+            const retryData = simpleMarketDataService.getAllData();
             if (retryData.length > 0) {
               setMarketData(retryData);
               console.log(`✅ Data received after delay: ${retryData.length} items`);
@@ -74,8 +74,8 @@ export function useMarketData() {
     return () => {
       if (isInitialized.current) {
         // Dynamic import for cleanup
-        import('@/lib/services/hybridMarketData').then(({ hybridMarketDataService }) => {
-          hybridMarketDataService.destroy();
+        import('@/lib/services/simpleMarketData').then(({ simpleMarketDataService }) => {
+          simpleMarketDataService.destroy();
         });
         isInitialized.current = false;
       }

@@ -43,39 +43,46 @@ export default function FilterPanel({ searchTerm, onSearchChange }: FilterPanelP
 
   return (
     <div
-      className="border-b px-6 py-4"
+      className="border-b-2 px-6 py-4 animate-slide-in-right"
       style={{
-        background: 'var(--surface)',
-        borderColor: 'var(--border)'
+        background: 'var(--bg-secondary)',
+        borderColor: 'var(--border)',
+        boxShadow: '0 2px 0 rgba(0, 0, 0, 0.2)'
       }}
     >
       <div className="flex items-center gap-4 flex-wrap">
-        {/* Enhanced Search */}
-        <div className="relative flex-1 min-w-[250px] max-w-md">
+        {/* Terminal-Style Search */}
+        <div className="relative flex-1 min-w-[280px] max-w-md">
           <Search
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4"
-            style={{ color: 'var(--text-tertiary)' }}
+            className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5"
+            style={{ color: searchTerm ? 'var(--accent)' : 'var(--text-muted)' }}
           />
           <input
             type="text"
-            placeholder="Search pairs... (BTC, ETH, SOL)"
+            placeholder="SEARCH PAIRS // BTC, ETH, SOL..."
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full pl-10 pr-10 py-2.5 rounded-lg text-sm font-medium transition-all"
+            className="w-full pl-12 pr-10 py-3 font-mono text-sm font-semibold tracking-wide transition-all uppercase"
             style={{
-              background: 'var(--surface-elevated)',
-              border: `1px solid ${searchTerm ? 'var(--primary)' : 'var(--border)'}`,
+              background: 'var(--bg-tertiary)',
+              border: `2px solid ${searchTerm ? 'var(--primary)' : 'var(--border)'}`,
               color: 'var(--text-primary)',
-              outline: 'none'
+              outline: 'none',
+              borderRadius: '0',
+              boxShadow: searchTerm ? '0 0 15px var(--accent-glow)' : 'none'
             }}
           />
           {searchTerm && (
             <button
               onClick={() => onSearchChange('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded transition-colors"
-              style={{ color: 'var(--text-tertiary)' }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 transition-all"
+              style={{
+                color: 'var(--text-tertiary)',
+                background: 'var(--danger)',
+                border: '1px solid var(--danger-dark)'
+              }}
             >
-              <X className="w-4 h-4" />
+              <X className="w-4 h-4" style={{ color: '#ffffff' }} />
             </button>
           )}
         </div>
@@ -84,16 +91,18 @@ export default function FilterPanel({ searchTerm, onSearchChange }: FilterPanelP
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setShowFilterMenu(!showFilterMenu)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-all"
+            className="flex items-center gap-2 px-4 py-3 font-mono text-xs font-bold tracking-wide transition-all uppercase"
             style={{
-              background: activeFilter ? 'var(--primary)' : 'var(--surface-elevated)',
-              color: activeFilter ? 'white' : 'var(--text-secondary)',
-              border: `1px solid ${activeFilter ? 'var(--primary)' : 'var(--border)'}`,
+              background: activeFilter ? 'var(--primary)' : 'var(--bg-tertiary)',
+              color: activeFilter ? '#000000' : 'var(--text-secondary)',
+              border: `2px solid ${activeFilter ? 'var(--primary)' : 'var(--border)'}`,
+              borderRadius: '0',
+              boxShadow: activeFilter ? '0 0 15px var(--accent-glow)' : 'none'
             }}
           >
-            <Filter className="w-4 h-4" />
+            <Filter className="w-5 h-5" />
             <span>
-              {activeFilter ? activeFilter.name : 'Advanced Filters'}
+              {activeFilter ? activeFilter.name : 'FILTERS'}
             </span>
             {activeFilter && (
               <button
@@ -101,9 +110,13 @@ export default function FilterPanel({ searchTerm, onSearchChange }: FilterPanelP
                   e.stopPropagation();
                   setActiveFilter(null);
                 }}
-                className="ml-1 p-0.5 hover:bg-white/20 rounded transition-colors"
+                className="ml-1 p-0.5 transition-all"
+                style={{
+                  background: 'var(--danger)',
+                  border: '1px solid var(--danger-dark)'
+                }}
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-3.5 h-3.5" style={{ color: '#ffffff' }} />
               </button>
             )}
           </button>
@@ -237,11 +250,13 @@ function QuickFilterChip({
   return (
     <button
       onClick={onClick}
-      className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5"
+      className="px-3 py-2 font-mono text-xs font-bold tracking-wide transition-all flex items-center gap-1.5 uppercase"
       style={{
-        background: active ? colors.bg : 'var(--surface-elevated)',
-        color: active ? colors.text : 'var(--text-tertiary)',
-        border: `1px solid ${active ? colors.border : 'var(--border)'}`,
+        background: active ? colors.text : 'var(--bg-tertiary)',
+        color: active ? '#000000' : 'var(--text-tertiary)',
+        border: `2px solid ${active ? colors.border : 'var(--border)'}`,
+        borderRadius: '0',
+        boxShadow: active ? `0 0 10px ${colors.bg}` : 'none'
       }}
     >
       {icon}
